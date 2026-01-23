@@ -16,7 +16,7 @@ export const Input = ({ label, type, name, id, placeholder, msgType, message, ..
                 name={name}
                 id={id}
                 placeholder={placeholder}
-                className="p-2 border-border border-2 rounded-md outline-none focus:border-primary transition"
+                className={`p-2 border-border border-2 rounded-md outline-none focus:border-primary transition ${props.className}`}
                 {...props}
             />
             <p>

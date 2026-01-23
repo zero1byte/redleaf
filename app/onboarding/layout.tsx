@@ -19,7 +19,7 @@ export default function FolderLayout({
         </div>
         <hr className="border-border w-1/2"/>
         <div className="flex items-center flex-col justify-center w-full">
-          <div className="lg:w-1/3 w-full  border-0 border-border rounded-lg p-8">
+          <div className="lg:w-1/3 w-full  border-0 border-border rounded-lg p-2">
             {children}
           </div>
         </div>

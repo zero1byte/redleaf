@@ -15,6 +15,9 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import useAuthUserStore from "@/store/useUserStore";
+import { StorageAuthUser } from "@/store/types";
+import { AuthTokenResponsePassword } from "@supabase/supabase-js";
 
 export function LoginForm({
   className,
@@ -25,6 +28,7 @@ export function LoginForm({
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const {setUser} = useAuthUserStore();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,11 +40,16 @@ export function LoginForm({
       const { error,data } = await supabase.auth.signInWithPassword({
         email,
         password,
-      });
+      }) as AuthTokenResponsePassword;
       console.log("Login data:", data);
       if (error) throw error;
+
+      //Store the user in the global state 
+      setUser(data.user as StorageAuthUser);
+
       // Update this route to redirect to an authenticated route. The user already has an active session.
-      // router.push("/protected");
+      router.push("/protected");
+
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred");
     } finally {

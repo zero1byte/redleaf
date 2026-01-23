@@ -1,5 +1,6 @@
 'use client';
 import CONSTANT from "@/app/CONSTANT";
+import { UserRound } from "lucide-react";
 import Image from "next/image";
 import React from "react";
 
@@ -7,8 +8,8 @@ interface profileProps {
     children: React.ReactNode;
 }
 
-export const SelectProfile = () => {
-    const [imageSrc, setImageSrc] = React.useState<string>(CONSTANT.images.userDefault);
+export const SelectProfile = ({ avatar_url }: { avatar_url?: string | null }) => {
+    const [imageSrc, setImageSrc] = React.useState<string>('');
 
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -30,7 +31,23 @@ export const SelectProfile = () => {
                 <div>
                     <input className="hidden" type="file" name="profilePicture" id="profilePicture" onChange={handleImageChange} />
                     <label htmlFor="profilePicture" className="hover:cursor-pointer">
-                        <Image width={500} height={500} className="rounded-full object-cover p-2 size-40 border " src={imageSrc} alt="User Profile" />
+                        {/* <Image width={500} height={500} className="rounded-full object-cover p-2 size-40 border " src={avatar_url || imageSrc} alt="User Profile" /> */}
+                        {avatar_url || imageSrc ? (
+                            <Image
+                                width={500}
+                                height={500}
+                                className=" rounded-full object-cover p-2 size-32 border-2 border-border"
+                                src={avatar_url || imageSrc}
+                                alt="User Profile"
+                            />
+                        ) : (
+                            <div className="border-2 border-border p-2 rounded-full" >
+                                <UserRound color="black" className=" bg-white rounded-full p-0 size-32 border-2 border-border" />
+                            </div>
+                        )}
+                        <p className="text-center py-2">
+                            Profile Picture
+                        </p>
                     </label>
                 </div>
             </div>
