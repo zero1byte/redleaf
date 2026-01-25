@@ -10,8 +10,7 @@ type UserDetails = {
 
 export async function GET(
     req: NextRequest,
-    { params }: { params: { id: string } },
-    res: NextResponse<UserDetails | { error: string, data?: any, isError: boolean }>
+    { params }: { params: Promise<{ id: string }> }
 ) {
     const supabase = await createClient();
     const { id } = await params;
@@ -32,8 +31,7 @@ export async function GET(
 }
 export async function POST(
     req: NextRequest,
-    { params }: { params: { id: string } },
-    res: NextResponse<UserDetails | { error: string, data?: any, isError: boolean }>
+    { params }: { params: Promise<{ id: string }> }
 ) {
     const { id } = await params;
     const supabase = await createClient();
