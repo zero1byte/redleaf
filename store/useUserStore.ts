@@ -16,6 +16,7 @@ const useAuthUserStore = create<UserStore>()(
             user: null,
             setUser: (user: StorageAuthUser) => set({ user }),
             clearUser: () => set({ user: null }),
+            getAuthUser: () => { return useAuthUserStore.getState().user; }
         }),
         {
             name: 'Auth-User-Storage', // unique name for localStorage

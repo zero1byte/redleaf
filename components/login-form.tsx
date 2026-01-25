@@ -15,9 +15,10 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import useAuthUserStore from "@/store/useUserStore";
+import useAuthUserStore, { useUserStore } from "@/store/useUserStore";
 import { StorageAuthUser } from "@/store/types";
 import { AuthTokenResponsePassword } from "@supabase/supabase-js";
+import axios, { AxiosResponse } from "axios";
 
 export function LoginForm({
   className,
@@ -28,7 +29,8 @@ export function LoginForm({
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const {setUser} = useAuthUserStore();
+  const { setUser } = useAuthUserStore();
+  const { setUser: setLoggedUser } = useUserStore();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,7 +39,7 @@ export function LoginForm({
     setError(null);
 
     try {
-      const { error,data } = await supabase.auth.signInWithPassword({
+      const { error, data } = await supabase.auth.signInWithPassword({
         email,
         password,
       }) as AuthTokenResponsePassword;
@@ -46,6 +48,10 @@ export function LoginForm({
 
       //Store the user in the global state 
       setUser(data.user as StorageAuthUser);
+
+      //storelogged user from DB
+      const { data: userData } = await axios.get(`/api/user/${data.user?.id}`) as AxiosResponse;
+      setLoggedUser(userData.data);
 
       // Update this route to redirect to an authenticated route. The user already has an active session.
       router.push("/protected");
