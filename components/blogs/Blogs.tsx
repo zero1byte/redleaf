@@ -10,7 +10,7 @@ interface BlogsResponse {
 
 export const Blogs = async () => {
     const response = await getBlogs() as BlogsResponse;
-    
+
     if (response.isError) {
         return (
             <section className="py-12 px-4">
@@ -22,7 +22,7 @@ export const Blogs = async () => {
     }
 
     const blogs = response.data ?? [];
-    
+
     return (
         <section className="py-12 px-4 sm:px-6 lg:px-8">
             <div className="max-w-7xl mx-auto">
@@ -38,11 +38,13 @@ export const Blogs = async () => {
 
                 {/* Blog Grid */}
                 {blogs.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                        {blogs.map((blog) => (
-                            <BlogCard key={blog.id} blog={blog} />
-                        ))
-                        }
+                    <div className='flex justify-center items-center'>
+                        <div className="flex flex-col gap-5 lg:w-3/4 w-full lg">
+                            {blogs.map((blog) => (
+                                <BlogCard key={blog.id} blog={blog} />
+                            ))
+                            }
+                        </div>
                     </div>
                 ) : (
                     <div className="text-center py-16">
