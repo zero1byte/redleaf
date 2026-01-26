@@ -27,29 +27,12 @@ export const BlogCard = ({ blog }: BlogCardProps) => {
         <Link href={`/blogs/${blog.id}`} className="block group">
             <article className="bg-card border-0 border-border overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 flex flex-col sm:flex-row h-full rounded-none">
                 {/* Left: Image */}
-                <div className="relative w-full sm:w-48 md:w-56 lg:w-64 flex-shrink-0 aspect-video sm:aspect-square overflow-hidden bg-muted">
+                <div className="relative w-full sm:w-40 md:w-48 lg:w-56 xl:w-64 flex-shrink-0 aspect-[16/10] sm:aspect-[4/3] md:aspect-square overflow-hidden bg-muted">
                     <img
                         src={blog.banner_image || "https://xvkdsmspuyvzyzcpjiwk.supabase.co/storage/v1/object/public/users_avatars/98c31494-ce8e-411a-a2e4-35895bb6cc60/avatar.jpg"}
                         alt={blog.title}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
-                    {/* ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
-                            <svg
-                                className="w-10 h-10 text-muted-foreground/40"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={1.5}
-                                    d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"
-                                />
-                            </svg>
-                        </div>
-                    )} */}
 
                     {/* Premium Badge */}
                     {blog.is_premium && (
@@ -60,39 +43,39 @@ export const BlogCard = ({ blog }: BlogCardProps) => {
                 </div>
 
                 {/* Right: Content */}
-                <div className="flex-grow p-4 sm:p-5 flex flex-col justify-between min-w-0 
-                border-r border-y border-border/90">
+                <div className="flex-grow p-3 xs:p-4 sm:p-4 md:p-5 flex flex-col justify-between min-w-0 
+                border border-border/50">
                     {/* Top Section */}
                     <div>
                         {/* Meta Row: Date & Read Time */}
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground mb-2">
+                        <div className="flex items-center gap-2 sm:gap-3 text-[10px] xs:text-xs text-muted-foreground mb-1.5 sm:mb-2">
                             <time dateTime={blog.created_at}>{formatDate(blog.created_at)}</time>
                             <span className="w-1 h-1 rounded-full bg-muted-foreground/50" />
                             <span>{readTime} min read</span>
                         </div>
 
                         {/* Title */}
-                        <h3 className="font-semibold text-base sm:text-lg text-foreground line-clamp-2 group-hover:text-primary transition-colors leading-snug">
+                        <h3 className="font-semibold text-sm xs:text-base sm:text-base md:text-lg text-foreground line-clamp-2 group-hover:text-primary transition-colors leading-snug">
                             {blog.title}
                         </h3>
 
-                        {/* Subtitle */}
+                        {/* Subtitle - Show on all but limit lines */}
                         {blog.subTitle && (
-                            <p className="mt-1.5 text-sm text-muted-foreground line-clamp-1 sm:line-clamp-2">
+                            <p className="mt-1 sm:mt-1.5 text-xs sm:text-sm text-muted-foreground line-clamp-1 sm:line-clamp-2">
                                 {blog.subTitle}
                             </p>
                         )}
 
-                        {/* Content Preview - Hidden on very small screens */}
-                        <p className="hidden sm:block mt-2 text-sm text-muted-foreground/80  line-clamp-3 truncate">
+                        {/* Content Preview - Hidden on mobile, show progressively */}
+                        <p className="hidden md:block mt-2 text-xs md:text-sm text-muted-foreground/80 line-clamp-2 lg:line-clamp-3">
                             {blog.contents}
                         </p>
                     </div>
 
                     {/* Bottom Section: Author */}
-                    <div className="mt-3 sm:mt-4 pt-3 border-t border-border/50 flex items-center gap-3">
+                    <div className="mt-2 xs:mt-3 sm:mt-3 md:mt-4 pt-2 sm:pt-3 border-t border-border/50 flex items-center gap-2 sm:gap-3">
                         {/* Author Avatar */}
-                        <div className="w-8 h-8 rounded-full overflow-hidden bg-muted flex-shrink-0 ring-2 ring-background">
+                        <div className="w-6 h-6 xs:w-7 xs:h-7 sm:w-8 sm:h-8 rounded-full overflow-hidden bg-muted flex-shrink-0 ring-2 ring-background">
                             {blog.author?.avatar_url ? (
                                 <img
                                     src={blog.author.avatar_url}
@@ -100,7 +83,7 @@ export const BlogCard = ({ blog }: BlogCardProps) => {
                                     className="w-full h-full object-cover"
                                 />
                             ) : (
-                                <div className="w-full h-full flex items-center justify-center bg-primary/10 text-primary text-sm font-medium">
+                                <div className="w-full h-full flex items-center justify-center bg-primary/10 text-primary text-xs sm:text-sm font-medium">
                                     {(blog.author?.full_name || blog.author?.username || 'A').charAt(0).toUpperCase()}
                                 </div>
                             )}
@@ -108,20 +91,20 @@ export const BlogCard = ({ blog }: BlogCardProps) => {
 
                         {/* Author Info */}
                         <div className="min-w-0 flex-grow">
-                            <p className="text-sm font-medium text-foreground truncate">
+                            <p className="text-xs sm:text-sm font-medium text-foreground truncate">
                                 {blog.author?.full_name || blog.author?.username || 'Anonymous'}
                             </p>
                             {blog.author?.followers_count !== undefined && (
-                                <p className="text-xs text-muted-foreground">
+                                <p className="hidden xs:block text-[10px] sm:text-xs text-muted-foreground">
                                     {blog.author.followers_count.toLocaleString()} followers
                                 </p>
                             )}
                         </div>
 
                         {/* Arrow Icon */}
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted/50 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
+                        <div className="flex-shrink-0 w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-muted/50 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
                             <svg
-                                className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors"
+                                className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground group-hover:text-primary transition-colors"
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
