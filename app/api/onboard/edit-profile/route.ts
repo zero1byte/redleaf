@@ -1,71 +1,31 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
-interface ProfileUpdateData {
-    userId: string;
-    username: string;
-    name: string;
-    bio?: string | null;
-    avatar_url?: string | null;
-    social_media_links?: string[];
-}
-
-export async function POST(req: NextRequest) {
+export async function PUT(req: NextRequest) {
     try {
-        const body: ProfileUpdateData = await req.json();
-
-        const { userId, username, name, bio, avatar_url, social_media_links } = body;
-
-        // Validate required fields
-        if (!userId) {
-            return NextResponse.json(
-                { error: 'User ID is required', isError: true },
-                { status: 400 }
-            );
-        }
-
-        if (!username || username.length <= 4) {
-            return NextResponse.json(
-                { error: 'Username must be more than 4 characters', isError: true },
-                { status: 400 }
-            );
-        }
-
-        if (!name || name.trim() === '') {
-            return NextResponse.json(
-                { error: 'Name is required', isError: true },
-                { status: 400 }
-            );
-        }
-
+        const body = await req.json();
         const supabase = await createClient();
-
-        // Check if username is already taken by another user
-        const { data: existingUser } = await supabase
-            .from('user_public_profiles')
-            .select('id')
-            .eq('username', username)
-            .neq('id', userId)
-            .single();
-
-        if (existingUser) {
+        const { data: loggedUser } = await supabase.auth.getUser();
+        if (!loggedUser || !loggedUser.user) {
             return NextResponse.json(
-                { error: 'Username is already taken', isError: true },
-                { status: 409 }
+                { error: 'Unauthorized', isError: true },
+                { status: 401 }
             );
         }
+
+        //remove attributes that are null/undefined/empty
+        Object.keys(body).forEach((key) => {
+            const k = key ;
+            if (body[k] === null || body[k] === undefined || (Array.isArray(body[k]) && body[k]?.length === 0)) {
+                delete body[k];
+            }
+        });
 
         // Update user profile - matching the users table schema
         const { data, error } = await supabase
-            .from('users')
-            .update({
-                username,
-                name,
-                bio: bio || null,
-                avatar_url: avatar_url || null,
-                social_media_links: social_media_links || [],
-            })
-            .eq('id', userId)
+            .from('users_public_details')
+            .update(body)
+            .eq('user_id', loggedUser.user.id)
             .select()
             .single();
         if (error) {

@@ -100,9 +100,9 @@ export async function POST(req: NextRequest) {
 
         // Update user's avatar_url in the database
         const { error: updateError } = await supabase
-            .from('users')
+            .from('users_public_details')
             .update({ avatar_url: uploadResult.url })
-            .eq('id', userId);
+            .eq('user_id', userId);
 
         if (updateError) {
             console.error('Database update error:', updateError);
@@ -181,9 +181,9 @@ export async function PUT(req: NextRequest) {
 
         // Update user's avatar_url in the database
         const { error: updateError } = await supabase
-            .from('users')
+            .from('users_public_details')
             .update({ avatar_url: uploadResult.url })
-            .eq('id', userId);
+            .eq('user_id', userId);
 
         if (updateError) {
             console.error('Database update error:', updateError);
@@ -233,9 +233,9 @@ export async function DELETE(req: NextRequest) {
 
         // Update user's avatar_url to null
         const { error: updateError } = await supabase
-            .from('users')
+            .from('users_public_details')
             .update({ avatar_url: null })
-            .eq('id', userId);
+            .eq('user_id', userId);
 
         if (updateError) {
             console.error('Database update error:', updateError);

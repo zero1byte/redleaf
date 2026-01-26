@@ -47,9 +47,10 @@ export function SignUpForm({
           emailRedirectTo: `${window.location.origin}/protected`,
         },
       });
-      if (error) throw error;
+      if (error) throw error; 
       router.push("/auth/sign-up-success");
     } catch (error: unknown) {
+      console.log("Sign up error:", error);
       setError(error instanceof Error ? error.message : "An error occurred");
     } finally {
       setIsLoading(false);

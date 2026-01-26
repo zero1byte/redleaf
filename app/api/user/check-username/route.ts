@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
 
         const supabase = await createClient();
         const { data, error } = await supabase
-            .from('user_public_profiles')
+            .from('users_public_details')
             .select('username')
             .eq('username', username)
             .single();

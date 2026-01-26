@@ -2,23 +2,37 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-
+import type { Blog } from "@/app/api/blogs/route";
+import axios, { Axios, AxiosResponse } from "axios";
 export default function NewBlogPage() {
     const [title, setTitle] = useState("");
     const [subtitle, setSubtitle] = useState("");
     const [content, setContent] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
-
+        const blog: Blog = {
+            title,
+            subTitle: subtitle,
+            contents: content,
+            is_premium: false,
+        };
         // TODO: Add your API call here to save the blog
-        console.log({ title, subtitle, content });
+        console.log(blog);
 
-        // Simulate API call
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        setIsSubmitting(false);
+        ///submit to API
+        try {
+            const response = await axios.post('/api/blogs', blog) as AxiosResponse<{data: Blog; isError: boolean; error?: string}>;
+            console.log('Blog created:', response);
+        } catch (error) {
+            console.error('Error creating blog:', error);
+            setError("Failed to create blog. Please try again.");
+        }finally {
+            setIsSubmitting(false);
+        }
     };
 
     const wordCount = content.trim().split(/\s+/).filter(Boolean).length;

@@ -46,8 +46,8 @@ export default function Page() {
     const [currentUser, setCurrentUser] = React.useState<loggedUser | null>(null);
 
     // Current user settings
-    const [email, setEmail] = React.useState<string>('');
     const [avatarUrl, setAvatarUrl] = React.useState<string | null>(null);
+    const [NewAvatarUrl, setNewAvatarUrl] = React.useState<string | null>(null);
     const [avatarFile, setAvatarFile] = React.useState<File | null>(null);
     const [username, setUsername] = React.useState<string>('');
     const [fullName, setFullName] = React.useState<string>('');
@@ -95,20 +95,19 @@ export default function Page() {
 
     useEffect(() => {
         if (currentUser) {
-            setEmail(currentUser.email);
             setAvatarUrl(currentUser.avatar_url);
-            setUsername(currentUser.username);
-            setFullName(currentUser.name);
+            setUsername(currentUser.username || '');
+            setFullName(currentUser.full_name || '');
             setBio(currentUser.bio || '');
             // Parse social media links if stored as array of URLs
-            const links = currentUser.social_media_links || [];
+            const links = currentUser.social_media_linkes || [];
             setSocialMediaLinks({
                 twitter: links.find((l: string) => l.includes('twitter')) || '',
                 instagram: links.find((l: string) => l.includes('instagram')) || '',
                 linkedin: links.find((l: string) => l.includes('linkedin')) || '',
                 github: links.find((l: string) => l.includes('github')) || '',
             });
-            initialUsernameRef.current = currentUser.username; // Store initial username
+            initialUsernameRef.current = currentUser.username || ''; // Store initial username
         }
     }, [currentUser]);
 
@@ -234,7 +233,7 @@ export default function Page() {
             let finalAvatarUrl = avatarUrl;
 
             // Upload avatar if a new file was selected
-            if (avatarFile) {
+            if (avatarFile && !NewAvatarUrl ) {
                 const uploadedUrl = await uploadAvatarUrl(avatarFile, user.id);
                 if (uploadedUrl) {
                     finalAvatarUrl = uploadedUrl;
@@ -254,13 +253,12 @@ export default function Page() {
             ].filter(link => link.trim() !== '');
 
             // Save profile data
-            const response = await axios.post('/api/onboard/edit-profile', {
-                userId: user.id,
+            const response = await axios.put('/api/onboard/edit-profile', {
                 username,
-                name: fullName,
+                full_name: fullName,
                 bio,
                 avatar_url: finalAvatarUrl,
-                social_media_links: socialLinks,
+                social_media_linkes: socialLinks,
             }) as AxiosResponse;
 
             if (response.data.isError) {
@@ -268,6 +266,7 @@ export default function Page() {
             } else {
                 setSaveMessage({ type: 'success', text: 'Profile saved successfully!' });
                 setAvatarUrl(finalAvatarUrl);
+                setNewAvatarUrl(finalAvatarUrl);
                 setAvatarFile(null);
                 // Update initial username ref since it's now saved
                 initialUsernameRef.current = username;
@@ -328,19 +327,6 @@ export default function Page() {
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                            {/* Email - Full width on mobile, half on desktop */}
-                            <div className="md:col-span-1">
-                                <Input
-                                    disabled
-                                    label="Email"
-                                    type="text"
-                                    name="email"
-                                    id="email"
-                                    placeholder={email}
-                                    className="bg-muted/50 p-2.5 cursor-not-allowed opacity-70"
-                                />
-                            </div>
-
                             {/* Username with validation */}
                             <div className="md:col-span-1">
                                 <div className="flex flex-col gap-2">

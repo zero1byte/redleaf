@@ -2,11 +2,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
-type UserDetails = {
-    id: string;
-    // Add other fields as per your Supabase table
-    [key: string]: any;
-};
 
 export async function GET(
     req: NextRequest,
@@ -17,28 +12,27 @@ export async function GET(
     try {
         // Fetch user details from the database using the user's ID
         const { data } = await supabase
-            .from('users') // Replace 'users' with your table name || "users_public" for select for other users
+            .from('users_public_details') // Replace 'users' with your table name || "users_public" for select for other users
             .select('*')
-            .eq('id', id)
+            .eq('user_id', id)
             .single();
-        if (!data) return NextResponse.json({ error: 'User not found', isError: true }, { status: 404 });
-
+        if (!data) return NextResponse.json({ error: 'User not found', isError: true,data }, { status: 404 });
         return NextResponse.json({ data, isError: false }, { status: 200 });
     } catch (error) {
         console.error(error);
         return NextResponse.json({ error: 'Unknown error', data: error, isError: true }, { status: 500 });
     }
 }
-export async function POST(
+export async function PUT(
     req: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     const { id } = await params;
     const supabase = await createClient();
     try {
-        const updateData = await req.json();
+        const {updateData} = await req.json();
         const { data: updatedData, error: updateError } = await supabase
-            .from('users') // Replace 'users' with your table name
+            .from('users_public_details') // Replace 'users' with your table name
             .update(updateData)
             .eq('id', id)
             .single();

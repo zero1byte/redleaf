@@ -1,15 +1,13 @@
-import { DeployButton } from "@/components/deploy-button";
 import { EnvVarWarning } from "@/components/env-var-warning";
 import { AuthButton } from "@/components/auth-button";
-import { Hero } from "@/components/hero";
 import { ThemeSwitcher } from "@/components/theme-switcher";
-import { ConnectSupabaseSteps } from "@/components/tutorial/connect-supabase-steps";
-import { SignUpUserSteps } from "@/components/tutorial/sign-up-user-steps";
 import { hasEnvVars } from "@/lib/utils";
 import Link from "next/link";
 import { Suspense } from "react";
 import CONSTANT from "./CONSTANT";
 
+import { Blogs } from "@/components/blogs/Blogs";
+import Loading from "./blogs/loading";
 export default function Home() {
   return (
     <main className="min-h-screen flex flex-col items-center">
@@ -18,26 +16,24 @@ export default function Home() {
           <div className="w-full max-w-5xl flex justify-between items-center p-3 px-5 text-sm">
             <div className="flex gap-5 items-center font-semibold">
               <Link href="/">
-              {CONSTANT.APP_NAME}
+                {CONSTANT.APP_NAME}
               </Link>
             </div>
             {!hasEnvVars ? (
               <EnvVarWarning />
             ) : (
-              <Suspense>
+              <Suspense fallback={<div>Loading...</div>}>
                 <AuthButton />
               </Suspense>
             )}
           </div>
         </nav>
-        <div className="flex-1 flex flex-col gap-20 max-w-5xl p-5">
-          <h1 className="font-bold">
-            <center>
-              Welcome to <span className="text-red-400 italic">Redleaf</span>
-              <h3>Coming soon....</h3>
-            </center>
-          </h1>
-        </div>
+        <main className="flex-1 flex flex-col gap-20 max-w-5xl p-5">
+          <Suspense fallback={<Loading />}>
+            <Blogs />
+          </Suspense>
+
+        </main>
 
         <footer className="w-full flex items-center justify-center border-t mx-auto text-center text-xs gap-8 py-16">
           <p>

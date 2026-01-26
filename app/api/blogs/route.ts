@@ -1,22 +1,82 @@
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createClientBackend } from "@/lib/supabase/client";
 import { NextRequest, NextResponse } from "next/server";
+
+export interface Blog {
+    created_at: string,
+    author_id: string,
+    is_premium: boolean,
+    is_deleted: boolean,
+    title: string,
+    subTitle: string | null,
+    contents: string,
+    id: string,
+    banner_image: string | null,
+    author: {
+        username: string,
+        full_name: string,
+        avatar_url: string,
+        followers_count: number,
+        following_count: number
+    }
+}
 
 export async function POST(req: NextRequest) {
     const supabase = await createClient();
     const blog = await req.json();
+    //Current User
+    const user = await supabase.auth.getUser();
+    if (user.data.user) {
+        blog.author_id = user.data.user.id;
+    }
     try {
         const { data, error } = await supabase
+            .schema("blogs")
             .from("blogs")
-            .insert(blog)
+            .insert(blog as Blog)
             .select()
             .single();
-
         if (error) {
-            return NextResponse.json({ error: error.message, isError: true }, { status: 500 });
+            return NextResponse.json({ error: error.message, isError: true, data }, { status: 500 });
         }
 
         return NextResponse.json({ data, isError: false }, { status: 201 });
     } catch (error) {
         return NextResponse.json({ error: "Unknown error", isError: true }, { status: 500 });
+    }
+}
+
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id?: string }> }) {
+    const { searchParams } = new URL(req.url);
+    const supabase = createClientBackend();
+    try {
+        const id = searchParams.get('id');
+        const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit') as string) : 20;
+        const offset = searchParams.get('offset') ? parseInt(searchParams.get('offset') as string) : 0;
+        if (id) {
+            const { data, error } = await supabase
+                .schema("blogs")
+                .from("blogs_with_author")
+                .select(`*`)
+                .eq("id", id)
+                .single();
+            if (error) {
+                return NextResponse.json({ error: error.message, isError: true, data }, { status: 500 });
+            }
+            return NextResponse.json({ data, isError: false }, { status: 200 });
+        }
+        const { data, error } = await supabase
+            .schema("blogs")
+            .from("blogs_with_author")
+            .select(`*`)
+            .order("created_at", { ascending: false })
+            .range(offset || 0, ((offset || 0) + (limit || 10)) - 1);
+        if (error) {
+            return NextResponse.json({ error: error.message, isError: true, data }, { status: 500 });
+        }
+        return NextResponse.json({ data, isError: false }, { status: 200 });
+    } catch (error) {
+        console.log(error);
+        return NextResponse.json({ error: "Unknown error", isError: true, data: error }, { status: 500 });
     }
 }
