@@ -6,12 +6,14 @@ export const GoogleButton = () => {
         <form action={signinWithGoogle}>
             <button
                 type="submit"
-                className="flex justify-center items-center gap-2 p-4 bg-foreground text-background border-secondary border-2 rounded-md w-full">
+                className="flex justify-center items-center gap-2 p-4 bg-foreground/10 text-muted-foreground border-secondary border-2 rounded-md w-full">
                 <img
                     src={CONSTANT.Icons.app.GoogleIcon}
                     className="size-5 rounded-full"
                     alt="Google Icon" />
-                Sign in with Google
+                <p className="text-muted-foreground">
+                    Sign in with Google
+                </p>
             </button>
         </form>
     );

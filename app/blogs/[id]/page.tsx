@@ -1,3 +1,4 @@
+import { JSX } from 'react';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getBlogById } from '@/app/services/blogs/blogs';
@@ -28,6 +29,230 @@ const calculateReadTime = (content: string): number => {
     return Math.max(1, Math.ceil(wordCount / wordsPerMinute));
 };
 
+// Content Renderer Component
+const BlogContent = ({ content }: { content: string }) => {
+    const renderContent = () => {
+        const blocks = content.split('\n\n');
+        const elements: JSX.Element[] = [];
+        let listItems: { type: 'bullet' | 'numbered'; content: string; indent: number }[] = [];
+        let inCodeBlock = false;
+        let codeContent: string[] = [];
+
+        const flushList = () => {
+            if (listItems.length > 0) {
+                const listType = listItems[0].type;
+                const ListTag = listType === 'numbered' ? 'ol' : 'ul';
+                elements.push(
+                    <ListTag
+                        key={`list-${elements.length}`}
+                        className={`my-6 ${listType === 'numbered' ? 'list-decimal' : 'list-disc'} list-outside ml-6 space-y-2`}
+                    >
+                        {listItems.map((item, i) => (
+                            <li
+                                key={i}
+                                className="text-lg text-muted-foreground leading-relaxed"
+                                style={{ marginLeft: item.indent * 24 }}
+                            >
+                                {renderInlineFormatting(item.content)}
+                            </li>
+                        ))}
+                    </ListTag>
+                );
+                listItems = [];
+            }
+        };
+
+        const renderInlineFormatting = (text: string): React.ReactNode => {
+            // Handle bold **text**
+            let result: React.ReactNode[] = [];
+            const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|<u>[^<]+<\/u>|\[[^\]]+\]\([^)]+\))/g);
+
+            parts.forEach((part, i) => {
+                if (part.startsWith('**') && part.endsWith('**')) {
+                    result.push(<strong key={i} className="font-semibold text-foreground">{part.slice(2, -2)}</strong>);
+                } else if (part.startsWith('*') && part.endsWith('*') && !part.startsWith('**')) {
+                    result.push(<em key={i} className="italic">{part.slice(1, -1)}</em>);
+                } else if (part.startsWith('<u>') && part.endsWith('</u>')) {
+                    result.push(<u key={i}>{part.slice(3, -4)}</u>);
+                } else if (part.match(/^\[[^\]]+\]\([^)]+\)$/)) {
+                    const match = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+                    if (match) {
+                        result.push(
+                            <a key={i} href={match[2]} className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
+                                {match[1]}
+                            </a>
+                        );
+                    }
+                } else {
+                    result.push(part);
+                }
+            });
+
+            return result;
+        };
+
+        blocks.forEach((block, index) => {
+            const trimmedBlock = block.trim();
+
+            // Handle code blocks
+            if (trimmedBlock.startsWith('```')) {
+                if (!inCodeBlock) {
+                    inCodeBlock = true;
+                    codeContent = [];
+                    const firstLine = trimmedBlock.slice(3);
+                    if (firstLine && !firstLine.includes('```')) {
+                        codeContent.push(firstLine);
+                    }
+                }
+                if (trimmedBlock.endsWith('```') && trimmedBlock.length > 3) {
+                    inCodeBlock = false;
+                    const code = trimmedBlock.slice(3, -3).trim();
+                    flushList();
+                    elements.push(
+                        <pre key={`code-${index}`} className="my-6 bg-muted border border-border rounded-lg p-4 overflow-x-auto">
+                            <code className="text-sm font-mono text-foreground">{code || codeContent.join('\n')}</code>
+                        </pre>
+                    );
+                    codeContent = [];
+                }
+                return;
+            }
+
+            if (inCodeBlock) {
+                codeContent.push(block);
+                return;
+            }
+
+            // Handle divider
+            if (trimmedBlock === '---') {
+                flushList();
+                elements.push(<hr key={`hr-${index}`} className="my-8 border-border" />);
+                return;
+            }
+
+            // Handle headings
+            if (trimmedBlock.startsWith('# ')) {
+                flushList();
+                elements.push(
+                    <h1 key={`h1-${index}`} className="text-3xl sm:text-4xl font-bold text-foreground mt-12 mb-6 tracking-tight">
+                        {renderInlineFormatting(trimmedBlock.slice(2))}
+                    </h1>
+                );
+                return;
+            }
+
+            if (trimmedBlock.startsWith('## ')) {
+                flushList();
+                elements.push(
+                    <h2 key={`h2-${index}`} className="text-2xl sm:text-3xl font-semibold text-foreground mt-10 mb-5 tracking-tight">
+                        {renderInlineFormatting(trimmedBlock.slice(3))}
+                    </h2>
+                );
+                return;
+            }
+
+            if (trimmedBlock.startsWith('### ')) {
+                flushList();
+                elements.push(
+                    <h3 key={`h3-${index}`} className="text-xl sm:text-2xl font-medium text-foreground mt-8 mb-4 tracking-tight">
+                        {renderInlineFormatting(trimmedBlock.slice(4))}
+                    </h3>
+                );
+                return;
+            }
+
+            // Handle images
+            const imageMatch = trimmedBlock.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+            if (imageMatch) {
+                flushList();
+                elements.push(
+                    <figure key={`img-${index}`} className="my-8">
+                        <img
+                            src={imageMatch[2]}
+                            alt={imageMatch[1] || 'Blog image'}
+                            className="w-full rounded-xl shadow-lg"
+                        />
+                        {imageMatch[1] && (
+                            <figcaption className="mt-3 text-center text-sm text-muted-foreground">
+                                {imageMatch[1]}
+                            </figcaption>
+                        )}
+                    </figure>
+                );
+                return;
+            }
+
+            // Handle blockquotes
+            if (trimmedBlock.startsWith('> ')) {
+                flushList();
+                elements.push(
+                    <blockquote
+                        key={`quote-${index}`}
+                        className="my-6 border-l-4 border-primary bg-muted/50 py-4 px-6 rounded-r-lg italic text-lg text-muted-foreground"
+                    >
+                        {renderInlineFormatting(trimmedBlock.slice(2))}
+                    </blockquote>
+                );
+                return;
+            }
+
+            // Handle bullet lists
+            if (trimmedBlock.match(/^(\s*)- /)) {
+                const match = trimmedBlock.match(/^(\s*)- (.+)$/);
+                if (match) {
+                    const indent = Math.floor(match[1].length / 2);
+                    if (listItems.length > 0 && listItems[0].type !== 'bullet') {
+                        flushList();
+                    }
+                    listItems.push({ type: 'bullet', content: match[2], indent });
+                }
+                return;
+            }
+
+            // Handle numbered lists
+            if (trimmedBlock.match(/^(\s*)\d+\. /)) {
+                const match = trimmedBlock.match(/^(\s*)\d+\. (.+)$/);
+                if (match) {
+                    const indent = Math.floor(match[1].length / 2);
+                    if (listItems.length > 0 && listItems[0].type !== 'numbered') {
+                        flushList();
+                    }
+                    listItems.push({ type: 'numbered', content: match[2], indent });
+                }
+                return;
+            }
+
+            // Handle bold text block
+            if (trimmedBlock.startsWith('**') && trimmedBlock.endsWith('**')) {
+                flushList();
+                elements.push(
+                    <p key={`bold-${index}`} className="text-lg sm:text-xl text-foreground font-bold leading-relaxed my-4">
+                        {trimmedBlock.slice(2, -2)}
+                    </p>
+                );
+                return;
+            }
+
+            // Handle regular paragraphs
+            if (trimmedBlock) {
+                flushList();
+                elements.push(
+                    <p key={`p-${index}`} className="text-lg text-muted-foreground leading-relaxed my-4">
+                        {renderInlineFormatting(trimmedBlock)}
+                    </p>
+                );
+            }
+        });
+
+        // Flush any remaining list items
+        flushList();
+
+        return elements;
+    };
+
+    return <div className="content">{renderContent()}</div>;
+};
+
 export default async function BlogPage({ params }: PageProps) {
     const { id } = await params;
 
@@ -36,27 +261,15 @@ export default async function BlogPage({ params }: PageProps) {
     if (response.isError || !response.data) {
         notFound();
     }
-    
+
     const blog = response.data;
     const readTime = calculateReadTime(blog.contents);
 
     return (
-        <main className="min-h-screen bg-background">
-            {/* Banner Image */}
-            {blog.banner_image && (
-                <div className="w-full h-[40vh] sm:h-[50vh] md:h-[60vh] relative overflow-hidden">
-                    <img
-                        src={blog.banner_image}
-                        alt={blog.title}
-                        className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
-                </div>
-            )}
-
-            <article className={`max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 ${blog.banner_image ? '-mt-24 relative z-10' : 'pt-8 sm:pt-12'}`}>
+        <main className="h-full bg-background">
+            <article className={`max-w-3xl mx-auto px-4 sm:px-6 pt-5 lg:px-8 ${blog.banner_image ? 'relative z-10' : 'pt-8 sm:pt-12'}`}>
                 {/* Header Section */}
-                <header className="mb-8 sm:mb-12">
+                <div className="mb-8 sm:mb-12">
                     {/* Premium Badge */}
                     {blog.is_premium && (
                         <div className="mb-4">
@@ -82,11 +295,11 @@ export default async function BlogPage({ params }: PageProps) {
                     )}
 
                     {/* Author & Meta Section */}
-                    <div className="mt-8 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 pt-6 border-t border-border">
+                    <div className="mt-8 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 p-2 border-0 bg-foreground/5 border-border rounded-lg">
                         {/* Author Info */}
                         <div className="flex items-center gap-3">
                             <Link href={`/profile/${blog.author?.username}`} className="flex-shrink-0">
-                                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full overflow-hidden ring-2 ring-primary/10 hover:ring-primary/30 transition-all">
+                                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden ring-2 ring-primary/10 hover:ring-primary/30 transition-all">
                                     {blog.author?.avatar_url ? (
                                         <img
                                             src={blog.author.avatar_url}
@@ -101,7 +314,7 @@ export default async function BlogPage({ params }: PageProps) {
                                 </div>
                             </Link>
                             <div className="flex flex-col">
-                                <Link 
+                                <Link
                                     href={`/profile/${blog.author?.username}`}
                                     className="font-semibold text-foreground hover:text-primary transition-colors"
                                 >
@@ -132,92 +345,13 @@ export default async function BlogPage({ params }: PageProps) {
                             </div>
                         </div>
                     </div>
-                </header>
-
-                {/* Article Content */}
-                <div className="prose prose-lg sm:prose-xl dark:prose-invert max-w-none
-                    prose-headings:font-bold prose-headings:tracking-tight
-                    prose-h2:text-2xl sm:prose-h2:text-3xl prose-h2:mt-12 prose-h2:mb-6
-                    prose-h3:text-xl sm:prose-h3:text-2xl prose-h3:mt-8 prose-h3:mb-4
-                    prose-p:text-muted-foreground prose-p:leading-relaxed prose-p:mb-6
-                    prose-a:text-primary prose-a:no-underline hover:prose-a:underline
-                    prose-strong:text-foreground prose-strong:font-semibold
-                    prose-code:text-primary prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-sm
-                    prose-pre:bg-muted prose-pre:border prose-pre:border-border
-                    prose-blockquote:border-l-primary prose-blockquote:bg-muted/50 prose-blockquote:py-1 prose-blockquote:px-6 prose-blockquote:rounded-r-lg
-                    prose-img:rounded-xl prose-img:shadow-lg
-                    prose-ul:my-6 prose-ol:my-6 prose-li:text-muted-foreground
-                ">
-                    <div className="whitespace-pre-wrap">{blog.contents}</div>
                 </div>
 
-                {/* Footer Section */}
-                <footer className="mt-12 sm:mt-16 pt-8 border-t border-border">
-                    {/* Author Card */}
-                    <div className="bg-muted/30 rounded-2xl p-6 sm:p-8">
-                        <div className="flex flex-col sm:flex-row gap-6">
-                            <Link href={`/profile/${blog.author?.username}`} className="flex-shrink-0 self-start">
-                                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden ring-4 ring-background shadow-lg hover:ring-primary/20 transition-all">
-                                    {blog.author?.avatar_url ? (
-                                        <img
-                                            src={blog.author.avatar_url}
-                                            alt={blog.author.full_name || blog.author.username}
-                                            className="w-full h-full object-cover"
-                                        />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center bg-primary text-primary-foreground text-2xl sm:text-3xl font-bold">
-                                            {(blog.author?.full_name || blog.author?.username || 'A').charAt(0).toUpperCase()}
-                                        </div>
-                                    )}
-                                </div>
-                            </Link>
-                            <div className="flex-grow">
-                                <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-1">
-                                    Written by
-                                </p>
-                                <Link 
-                                    href={`/profile/${blog.author?.username}`}
-                                    className="text-xl sm:text-2xl font-bold text-foreground hover:text-primary transition-colors"
-                                >
-                                    {blog.author?.full_name || blog.author?.username || 'Anonymous'}
-                                </Link>
-                                {blog.author?.username && (
-                                    <p className="text-muted-foreground mt-1">@{blog.author.username}</p>
-                                )}
-                                <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
-                                    <span className="flex items-center gap-1">
-                                        <span className="font-semibold text-foreground">{blog.author?.followers_count?.toLocaleString() || 0}</span> followers
-                                    </span>
-                                    <span className="flex items-center gap-1">
-                                        <span className="font-semibold text-foreground">{blog.author?.following_count?.toLocaleString() || 0}</span> following
-                                    </span>
-                                </div>
-                                <Link
-                                    href={`/profile/${blog.author?.username}`}
-                                    className="inline-flex items-center gap-2 mt-4 px-5 py-2.5 bg-primary text-primary-foreground font-medium rounded-full hover:bg-primary/90 transition-colors"
-                                >
-                                    View Profile
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                    </svg>
-                                </Link>
-                            </div>
-                        </div>
-                    </div>
+                {/* Article Content */}
+                <div className="prose prose-lg sm:prose-xl dark:prose-invert max-w-none">
+                    <BlogContent content={blog.contents} />
+                </div>
 
-                    {/* Back to Blogs */}
-                    <div className="mt-8 text-center pb-12">
-                        <Link
-                            href="/"
-                            className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                            </svg>
-                            Back to all blogs
-                        </Link>
-                    </div>
-                </footer>
             </article>
         </main>
     );
