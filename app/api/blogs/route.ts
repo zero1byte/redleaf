@@ -46,11 +46,12 @@ export async function POST(req: NextRequest) {
     }
 }
 
-export async function GET(req: NextRequest, { params }: { params: Promise<{ id?: string }> }) {
+export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const supabase = createClientBackend();
     try {
         const id = searchParams.get('id');
+        const q = searchParams.get('q')?.trim() || '';
         const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit') as string) : 20;
         const offset = searchParams.get('offset') ? parseInt(searchParams.get('offset') as string) : 0;
         if (id) {
@@ -65,10 +66,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id?:
             }
             return NextResponse.json({ data, isError: false }, { status: 200 });
         }
-        const { data, error } = await supabase
+        let blogsQuery = supabase
             .schema("blogs")
             .from("blogs_with_author")
-            .select(`*`)
+            .select(`*`);
+
+        if (q.length > 0) {
+            const normalizedQuery = q.replace(/,/g, ' ').replace(/\s+/g, ' ').trim();
+            blogsQuery = blogsQuery.or(`title.ilike.%${normalizedQuery}%,subTitle.ilike.%${normalizedQuery}%,contents.ilike.%${normalizedQuery}%`);
+        }
+
+        const { data, error } = await blogsQuery
             .order("created_at", { ascending: false })
             .range(offset || 0, ((offset || 0) + (limit || 10)) - 1);
         if (error) {

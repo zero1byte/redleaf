@@ -169,9 +169,9 @@ export const BlogCard = ({ blog, variant = 'default' }: BlogCardProps) => {
     // Default Card - Standard blog card with image and content
     return (
         <Link href={`/blogs/${blog.id}`} className="block group">
-            <article className="bg-card rounded-xl overflow-hidden border border-border/50 shadow-sm hover:shadow-lg hover:border-border transition-all duration-300 flex flex-col sm:flex-row h-full">
+            <article className="overflow-hidden rounded-none border border-border/60 bg-card transition-all duration-300 hover:-translate-y-0.5 hover:border-border hover:shadow-xl flex flex-col md:flex-row h-full">
                 {/* Image Section */}
-                <div className="relative w-full sm:w-44 md:w-52 lg:w-60 flex-shrink-0 aspect-[16/10] sm:aspect-square overflow-hidden bg-muted">
+                <div className="relative w-full md:w-64 lg:w-72 flex-shrink-0 aspect-[16/9] md:aspect-[4/5] overflow-hidden bg-muted">
                     <img
                         src={blog.banner_image || "/placeholder-blog.jpg"}
                         alt={blog.title}
@@ -179,12 +179,12 @@ export const BlogCard = ({ blog, variant = 'default' }: BlogCardProps) => {
                     />
                     
                     {/* Gradient Overlay on Mobile */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent sm:hidden" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent md:hidden" />
 
                     {/* Premium Badge */}
                     {blog.is_premium && (
                         <div className="absolute top-3 left-3">
-                            <span className="px-2.5 py-1 bg-amber-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-md shadow-lg flex items-center gap-1">
+                            <span className="px-2.5 py-1 bg-primary text-primary-foreground text-[10px] font-bold uppercase tracking-wider rounded-md shadow-lg flex items-center gap-1">
                                 <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                                     <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                                 </svg>
@@ -202,41 +202,43 @@ export const BlogCard = ({ blog, variant = 'default' }: BlogCardProps) => {
                 </div>
 
                 {/* Content Section */}
-                <div className="flex-1 p-4 sm:p-5 flex flex-col justify-between min-w-0">
+                <div className="flex-1 p-4 sm:p-5 md:p-6 flex flex-col justify-between min-w-0">
                     {/* Top Content */}
                     <div>
                         {/* Meta Row */}
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                            <time dateTime={blog.created_at} className="font-medium">{formatDate(blog.created_at)}</time>
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mb-2.5">
+                            <time dateTime={blog.created_at} className="font-medium rounded-full bg-muted px-2.5 py-1">
+                                {formatDate(blog.created_at)}
+                            </time>
                             <span className="w-1 h-1 rounded-full bg-muted-foreground/40" />
                             <span className="hidden sm:inline">{readTime} min read</span>
                         </div>
 
                         {/* Title */}
-                        <h3 className="font-bold text-base sm:text-lg text-foreground line-clamp-2 group-hover:text-primary transition-colors leading-snug">
+                        <h3 className="font-semibold text-lg sm:text-xl text-foreground line-clamp-2 group-hover:text-primary transition-colors leading-snug tracking-tight">
                             {blog.title}
                         </h3>
 
                         {/* Subtitle */}
                         {blog.subTitle && (
-                            <p className="mt-1.5 text-sm text-muted-foreground line-clamp-2">
+                            <p className="mt-2 text-sm sm:text-[15px] text-muted-foreground line-clamp-2">
                                 {blog.subTitle}
                             </p>
                         )}
 
                         {/* Content Preview */}
                         {cleanedContent && (
-                            <p className="hidden lg:block mt-3 text-sm text-muted-foreground/80 line-clamp-2 leading-relaxed">
+                            <p className="mt-3 text-sm text-muted-foreground/85 line-clamp-2 lg:line-clamp-3 leading-relaxed">
                                 {cleanedContent.slice(0, 150)}...
                             </p>
                         )}
                     </div>
 
                     {/* Author Section */}
-                    <div className="mt-4 pt-4 border-t border-border/50 flex items-center justify-between">
+                    <div className="mt-5 pt-4 border-t border-border/60 flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3">
                             {/* Avatar */}
-                            <div className="w-8 h-8 rounded-full overflow-hidden bg-muted ring-2 ring-background shadow-sm">
+                            <div className="w-9 h-9 rounded-full overflow-hidden bg-muted ring-2 ring-background shadow-sm">
                                 {blog.author?.avatar_url ? (
                                     <img
                                         src={blog.author.avatar_url}
@@ -256,7 +258,7 @@ export const BlogCard = ({ blog, variant = 'default' }: BlogCardProps) => {
                                     {blog.author?.full_name || blog.author?.username || 'Anonymous'}
                                 </p>
                                 {blog.author?.followers_count !== undefined && blog.author.followers_count > 0 && (
-                                    <p className="text-[10px] text-muted-foreground">
+                                    <p className="text-[11px] text-muted-foreground">
                                         {blog.author.followers_count.toLocaleString()} followers
                                     </p>
                                 )}
@@ -264,9 +266,10 @@ export const BlogCard = ({ blog, variant = 'default' }: BlogCardProps) => {
                         </div>
 
                         {/* Action Button */}
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted/80 flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-300">
+                        <div className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/60 px-3 py-1.5 text-xs font-medium text-foreground group-hover:bg-primary group-hover:text-primary-foreground group-hover:border-primary transition-all duration-300">
+                            Read
                             <svg
-                                className="w-4 h-4 transform group-hover:translate-x-0.5 transition-transform"
+                                className="w-3.5 h-3.5 transform group-hover:translate-x-0.5 transition-transform"
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
