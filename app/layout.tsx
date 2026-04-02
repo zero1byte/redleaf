@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import { ThemeProvider } from "next-themes";
-import "./globals.css";
+import CONSTANT from "./CONSTANT";
 import { MainLayout } from "./MainLayout";
+import "./globals.css";
 
 const defaultUrl = process.env.VERCEL_URL
   ? `https://${process.env.VERCEL_URL}`
@@ -10,7 +11,7 @@ const defaultUrl = process.env.VERCEL_URL
 
 export const metadata: Metadata = {
   metadataBase: new URL(defaultUrl),
-  title: "Redleaf",
+  title: `${CONSTANT.APP_NAME} - Share Your Knowledge`,
   description: "Share your knowledge with the world.",
 };
 

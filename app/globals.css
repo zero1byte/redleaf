@@ -64,7 +64,104 @@
     @apply border-border;
   }
 
+  html {
+    @apply scroll-smooth;
+  }
+
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* Professional Typography Defaults */
+  h1 {
+    @apply text-4xl sm:text-5xl md:text-6xl font-bold tracking-tighter leading-tight;
+  }
+
+  h2 {
+    @apply text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight leading-snug;
+  }
+
+  h3 {
+    @apply text-2xl sm:text-3xl font-semibold tracking-tight leading-snug;
+  }
+
+  h4 {
+    @apply text-xl sm:text-2xl font-semibold tracking-normal leading-snug;
+  }
+
+  h5 {
+    @apply text-lg sm:text-xl font-semibold tracking-normal leading-snug;
+  }
+
+  h6 {
+    @apply text-base sm:text-lg font-semibold tracking-normal leading-snug;
+  }
+
+  p {
+    @apply text-sm sm:text-base leading-relaxed;
+  }
+
+  small {
+    @apply text-xs sm:text-sm leading-normal;
+  }
+
+  .text-muted {
+    @apply text-gray-600 dark:text-gray-400;
+  }
+}
+
+@layer components {
+  /* Display Headings */
+  .display-1 {
+    @apply text-5xl sm:text-6xl md:text-7xl font-bold tracking-tighter leading-tight;
+  }
+
+  .display-2 {
+    @apply text-4xl sm:text-5xl md:text-6xl font-bold tracking-tighter leading-tight;
+  }
+
+  /* Section Headings */
+  .section-title {
+    @apply text-3xl sm:text-4xl font-bold tracking-tight leading-snug;
+  }
+
+  .section-subtitle {
+    @apply text-lg sm:text-xl font-semibold text-muted-foreground;
+  }
+
+  /* Card Titles */
+  .card-title {
+    @apply text-xl sm:text-2xl font-semibold tracking-tight;
+  }
+
+  .card-subtitle {
+    @apply text-sm sm:text-base text-muted-foreground;
+  }
+
+  /* Body Text */
+  .body-large {
+    @apply text-base sm:text-lg leading-relaxed;
+  }
+
+  .body-medium {
+    @apply text-sm sm:text-base leading-relaxed;
+  }
+
+  .body-small {
+    @apply text-xs sm:text-sm leading-normal;
+  }
+
+  /* Labels & UI Text */
+  .label {
+    @apply text-xs sm:text-sm font-medium uppercase tracking-wider;
+  }
+
+  .button-text {
+    @apply text-sm font-semibold;
+  }
+
+  /* Meta Information */
+  .meta-text {
+    @apply text-xs sm:text-sm text-muted-foreground;
   }
 }

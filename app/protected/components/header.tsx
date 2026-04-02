@@ -33,6 +33,12 @@ export default function Header() {
      ${isMenuOpen ? 'h-screen w-screen items-start' : 'px-5'} transition-padding duration-300`}>
         <div className={`w-full max-w-5xl flex justify-between items-center p-3 px-5 text-sm gap-2 ${isMenuOpen ? 'flex-col items-start' : 'flex-row items-center'}`}>
           <div className="flex items-center gap-5 justify-between max-sm:w-full">
+            {/* Logo */}
+            <div>
+              <Link href="/" className="flex items-center gap-2">
+                <img src={CONSTANT.LOGO}  alt="Logo" className="h-8 w-8 rounded-sm" />
+              </Link>
+            </div>
             <div className="flex gap-5 items-center font-semibold ">
               <a href="/">{CONSTANT.APP_NAME}</a>
             </div>

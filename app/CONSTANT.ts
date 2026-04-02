@@ -1,6 +1,6 @@
 export default {
-    APP_NAME: 'Redleaf',
-    logo: "",
+    APP_NAME: 'ZeroBytes',
+    LOGO: '/logo.png',
     full_logo: "",
     VERSION: '1.0.0',
     Icons: {

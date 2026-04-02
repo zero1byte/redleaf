@@ -4,7 +4,7 @@ import { JSX, useEffect, useState, useRef, KeyboardEvent } from "react";
 import { Button } from "@/components/ui/button";
 import type { Blog } from "@/app/api/blogs/route";
 import axios, { AxiosResponse } from "axios";
-import { ImageIcon, Bold, Heading1, Heading2, Heading3, List, ListOrdered, Quote, Code, Minus, Italic, Underline, Link, Trash2 } from "lucide-react";
+import { ImageIcon, Bold, Heading1, Heading2, Heading3, List, ListOrdered, Quote, Code, Minus, Italic, Underline, Link, Trash2, X } from "lucide-react";
 
 type BlockType = "paragraph" | "heading1" | "heading2" | "heading3" | "bold" | "image" | "bullet-list" | "numbered-list" | "quote" | "code" | "divider";
 
@@ -53,6 +53,10 @@ const SlashCommandEditor = ({ onChange }: SlashCommandEditorProps): JSX.Element 
     const [selectionToolbarPosition, setSelectionToolbarPosition] = useState({ top: 0, left: 0 });
     const [selectedText, setSelectedText] = useState({ start: 0, end: 0 });
     const [uploadingImages, setUploadingImages] = useState<Set<string>>(new Set());
+    const [showImageModal, setShowImageModal] = useState(false);
+    const [imageInputMode, setImageInputMode] = useState<"file" | "url">("file");
+    const [imageUrlInput, setImageUrlInput] = useState("");
+    const [imageModalBlockId, setImageModalBlockId] = useState<string | null>(null);
     const editorRef = useRef<HTMLDivElement>(null);
     const inputRefs = useRef<Map<string, HTMLInputElement | HTMLTextAreaElement>>(new Map());
     const menuRef = useRef<HTMLDivElement>(null);
@@ -378,6 +382,10 @@ const SlashCommandEditor = ({ onChange }: SlashCommandEditorProps): JSX.Element 
                     inputRefs.current.get(newParagraphId)?.focus();
                 }, 100);
             }
+
+            // Close modal after successful upload
+            setShowImageModal(false);
+            setImageUrlInput("");
         } catch (error) {
             console.error('Error uploading image:', error);
             // Fallback to base64 if API fails
@@ -411,6 +419,10 @@ const SlashCommandEditor = ({ onChange }: SlashCommandEditorProps): JSX.Element 
                 }
             };
             reader.readAsDataURL(file);
+            
+            // Close modal after fallback
+            setShowImageModal(false);
+            setImageUrlInput("");
         } finally {
             setUploadingImages(prev => {
                 const newSet = new Set(prev);
@@ -425,10 +437,77 @@ const SlashCommandEditor = ({ onChange }: SlashCommandEditorProps): JSX.Element 
         }
     };
 
-    // Trigger file input for image block
+    // Trigger image upload modal
     const triggerImageUpload = (blockId: string) => {
         setActiveBlockId(blockId);
-        fileInputRef.current?.click();
+        setImageModalBlockId(blockId);
+        setShowImageModal(true);
+        setImageInputMode("file");
+        setImageUrlInput("");
+    };
+
+    // Handle URL image input
+    const handleImageUrlSubmit = async () => {
+        if (!imageUrlInput.trim() || !imageModalBlockId) return;
+
+        setUploadingImages(prev => new Set(prev).add(imageModalBlockId));
+
+        try {
+            // Verify the URL is valid by trying to load the image
+            const img = new Image();
+            img.onload = () => {
+                // URL is valid, update block with the image URL
+                const blockIndex = blocks.findIndex(b => b.id === imageModalBlockId);
+                const nextBlock = blocks[blockIndex + 1];
+                const hasNextParagraph = nextBlock && nextBlock.type === "paragraph";
+
+                if (hasNextParagraph) {
+                    setBlocks(prev => prev.map(b =>
+                        b.id === imageModalBlockId ? { ...b, content: imageUrlInput } : b
+                    ));
+                    setTimeout(() => {
+                        inputRefs.current.get(nextBlock.id)?.focus();
+                    }, 100);
+                } else {
+                    const newParagraphId = crypto.randomUUID();
+                    setBlocks(prev => {
+                        const newBlocks = prev.map(b =>
+                            b.id === imageModalBlockId ? { ...b, content: imageUrlInput } : b
+                        );
+                        const idx = newBlocks.findIndex(b => b.id === imageModalBlockId);
+                        newBlocks.splice(idx + 1, 0, { id: newParagraphId, type: "paragraph", content: "", indent: 0 });
+                        return newBlocks;
+                    });
+                    setTimeout(() => {
+                        inputRefs.current.get(newParagraphId)?.focus();
+                    }, 100);
+                }
+
+                setShowImageModal(false);
+                setImageUrlInput("");
+                setUploadingImages(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(imageModalBlockId);
+                    return newSet;
+                });
+            };
+            img.onerror = () => {
+                alert("Invalid image URL. Please check the URL and try again.");
+                setUploadingImages(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(imageModalBlockId);
+                    return newSet;
+                });
+            };
+            img.src = imageUrlInput;
+        } catch (error) {
+            console.error('Error loading image from URL:', error);
+            setUploadingImages(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(imageModalBlockId);
+                return newSet;
+            });
+        }
     };
 
     const selectOption = (type: BlockType, blockId: string) => {
@@ -636,24 +715,82 @@ const SlashCommandEditor = ({ onChange }: SlashCommandEditorProps): JSX.Element 
                                 </div>
                             </div>
                         ) : (
-                            <button
-                                ref={el => { if (el) inputRefs.current.set(block.id, el as unknown as HTMLInputElement); }}
-                                onClick={() => triggerImageUpload(block.id)}
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter") {
-                                        e.preventDefault();
-                                        triggerImageUpload(block.id);
-                                    } else if (e.key === "Backspace" && blocks.length > 1) {
-                                        e.preventDefault();
-                                        removeBlock(block.id);
-                                    }
-                                }}
-                                onFocus={() => setActiveBlockId(block.id)}
-                                className="w-full p-8 border-2 border-dashed border-muted-foreground/30 rounded-lg hover:border-muted-foreground/50 focus:border-primary focus:outline-none transition-colors flex flex-col items-center gap-2 text-muted-foreground"
-                            >
-                                <ImageIcon className="w-8 h-8" />
-                                <span className="text-sm">Click to upload image</span>
-                            </button>
+                            <div className="w-full space-y-3 rounded-lg border-2 border-dashed border-muted-foreground/30 p-6 relative group">
+                                {/* Delete Button */}
+                                <button
+                                    onClick={() => {
+                                        if (blocks.length > 1) {
+                                            removeBlock(block.id);
+                                        } else {
+                                            setBlocks(prev => prev.map(b =>
+                                                b.id === block.id ? { ...b, type: "paragraph", content: "" } : b
+                                            ));
+                                        }
+                                    }}
+                                    className="absolute top-2 right-2 p-2 bg-destructive/80 hover:bg-destructive text-destructive-foreground rounded-lg shadow-lg border border-destructive/30 transition-all opacity-0 group-hover:opacity-100"
+                                    title="Remove image block"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+
+                                {/* Upload Button */}
+                                <button
+                                    onClick={() => triggerImageUpload(block.id)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                            e.preventDefault();
+                                            triggerImageUpload(block.id);
+                                        }
+                                    }}
+                                    onFocus={() => setActiveBlockId(block.id)}
+                                    className="w-full p-6 rounded-lg hover:bg-primary/5 focus:bg-primary/10 focus:outline-none transition-colors flex flex-col items-center gap-2 text-muted-foreground hover:text-primary"
+                                >
+                                    <ImageIcon className="w-8 h-8" />
+                                    <span className="text-sm font-medium">Click to upload image</span>
+                                </button>
+
+                                {/* URL Input */}
+                                <div className="space-y-2">
+                                    <label className="text-xs font-medium text-muted-foreground">Or paste image URL:</label>
+                                    <input
+                                        type="text"
+                                        placeholder="https://example.com/image.jpg"
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter" && e.currentTarget.value.trim()) {
+                                                const url = e.currentTarget.value.trim();
+                                                const blockIndex = blocks.findIndex(b => b.id === block.id);
+                                                const nextBlock = blocks[blockIndex + 1];
+                                                const hasNextParagraph = nextBlock && nextBlock.type === "paragraph";
+
+                                                if (hasNextParagraph) {
+                                                    setBlocks(prev => prev.map(b =>
+                                                        b.id === block.id ? { ...b, content: url } : b
+                                                    ));
+                                                    setTimeout(() => {
+                                                        inputRefs.current.get(nextBlock.id)?.focus();
+                                                    }, 100);
+                                                } else {
+                                                    const newParagraphId = crypto.randomUUID();
+                                                    setBlocks(prev => {
+                                                        const newBlocks = prev.map(b =>
+                                                            b.id === block.id ? { ...b, content: url } : b
+                                                        );
+                                                        const idx = newBlocks.findIndex(b => b.id === block.id);
+                                                        newBlocks.splice(idx + 1, 0, { id: newParagraphId, type: "paragraph", content: "", indent: 0 });
+                                                        return newBlocks;
+                                                    });
+                                                    setTimeout(() => {
+                                                        inputRefs.current.get(newParagraphId)?.focus();
+                                                    }, 100);
+                                                }
+                                                e.currentTarget.value = "";
+                                            }
+                                        }}
+                                        className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all bg-background text-foreground placeholder:text-muted-foreground/50"
+                                    />
+                                    <p className="text-xs text-muted-foreground">Press Enter to add image from URL</p>
+                                </div>
+                            </div>
                         )}
                     </div>
                 ) : (
@@ -698,6 +835,136 @@ const SlashCommandEditor = ({ onChange }: SlashCommandEditorProps): JSX.Element 
             <div className="space-y-2">
                 {blocks.map((block, index) => renderBlock(block, index))}
             </div>
+
+            {/* Image Upload Modal */}
+            {showImageModal && (
+                <>
+                    {/* Backdrop */}
+                    <div
+                        className="fixed inset-0 bg-background/50 backdrop-blur-sm z-40"
+                        onClick={() => {
+                            setShowImageModal(false);
+                            setImageUrlInput("");
+                        }}
+                    />
+                    {/* Modal */}
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-auto">
+                            {/* Header */}
+                            <div className="sticky top-0 flex items-center justify-between p-6 border-b border-border bg-card/95 backdrop-blur-sm">
+                                <h2 className="text-xl font-semibold">Add Image</h2>
+                                <button
+                                    onClick={() => {
+                                        setShowImageModal(false);
+                                        setImageUrlInput("");
+                                    }}
+                                    className="p-1 hover:bg-accent rounded-lg transition-colors"
+                                    title="Close"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            {/* Content */}
+                            <div className="p-6 space-y-6">
+                                {/* Tab Buttons */}
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => {
+                                            setImageInputMode("file");
+                                            setImageUrlInput("");
+                                        }}
+                                        className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
+                                            imageInputMode === "file"
+                                                ? "bg-primary text-primary-foreground"
+                                                : "bg-muted text-muted-foreground hover:bg-muted/80"
+                                        }`}
+                                    >
+                                        <ImageIcon className="inline-block w-4 h-4 mr-2" />
+                                        Upload File
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setImageInputMode("url");
+                                            setImageUrlInput("");
+                                        }}
+                                        className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
+                                            imageInputMode === "url"
+                                                ? "bg-primary text-primary-foreground"
+                                                : "bg-muted text-muted-foreground hover:bg-muted/80"
+                                        }`}
+                                    >
+                                        <Link className="inline-block w-4 h-4 mr-2" />
+                                        From URL
+                                    </button>
+                                </div>
+
+                                {/* File Upload Mode */}
+                                {imageInputMode === "file" && (
+                                    <div className="space-y-4">
+                                        <p className="text-sm text-muted-foreground">
+                                            Choose an image file from your computer
+                                        </p>
+                                        <button
+                                            onClick={() => fileInputRef.current?.click()}
+                                            className="w-full p-8 border-2 border-dashed border-muted-foreground/30 rounded-lg hover:border-primary hover:bg-primary/5 transition-all flex flex-col items-center gap-2 text-muted-foreground hover:text-primary"
+                                        >
+                                            <ImageIcon className="w-8 h-8" />
+                                            <span className="text-sm font-medium">Click to select image</span>
+                                            <span className="text-xs">or drag and drop</span>
+                                        </button>
+                                    </div>
+                                )}
+
+                                {/* URL Input Mode */}
+                                {imageInputMode === "url" && (
+                                    <div className="space-y-4">
+                                        <p className="text-sm text-muted-foreground">
+                                            Paste the URL of your image
+                                        </p>
+                                        <input
+                                            type="text"
+                                            value={imageUrlInput}
+                                            onChange={(e) => setImageUrlInput(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter") {
+                                                    e.preventDefault();
+                                                    handleImageUrlSubmit();
+                                                }
+                                            }}
+                                            placeholder="https://example.com/image.jpg"
+                                            className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+                                            autoFocus
+                                        />
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Footer */}
+                            <div className="sticky bottom-0 flex gap-3 p-6 border-t border-border bg-card/95 backdrop-blur-sm">
+                                <button
+                                    onClick={() => {
+                                        setShowImageModal(false);
+                                        setImageUrlInput("");
+                                    }}
+                                    className="flex-1 py-2 px-4 border border-border rounded-lg hover:bg-accent transition-colors font-medium"
+                                >
+                                    Cancel
+                                </button>
+                                {imageInputMode === "url" && (
+                                    <button
+                                        onClick={handleImageUrlSubmit}
+                                        disabled={!imageUrlInput.trim() || uploadingImages.has(imageModalBlockId || "")}
+                                        className="flex-1 py-2 px-4 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                                    >
+                                        {uploadingImages.has(imageModalBlockId || "") ? "Loading..." : "Upload"}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </>
+            )}
 
             {/* Selection Formatting Toolbar */}
             {showSelectionToolbar && (

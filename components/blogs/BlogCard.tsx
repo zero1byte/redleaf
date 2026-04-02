@@ -84,13 +84,13 @@ export const BlogCard = ({ blog, variant = 'default' }: BlogCardProps) => {
                             </div>
 
                             {/* Title */}
-                            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white leading-tight mb-3 group-hover:text-primary-foreground transition-colors">
+                            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white leading-tight mb-3 group-hover:text-primary-foreground transition-colors tracking-tight">
                                 {blog.title}
                             </h2>
 
                             {/* Subtitle */}
                             {blog.subTitle && (
-                                <p className="text-white/80 text-sm sm:text-base md:text-lg line-clamp-2 mb-4 max-w-3xl">
+                                <p className="text-white/80 text-base sm:text-lg md:text-xl line-clamp-2 mb-4 max-w-3xl leading-relaxed">
                                     {blog.subTitle}
                                 </p>
                             )}
@@ -108,10 +108,10 @@ export const BlogCard = ({ blog, variant = 'default' }: BlogCardProps) => {
                                         )}
                                     </div>
                                     <div>
-                                        <p className="text-white font-medium text-sm">
+                                        <p className="text-white font-medium text-base sm:text-lg">
                                             {blog.author?.full_name || blog.author?.username || 'Anonymous'}
                                         </p>
-                                        <p className="text-white/60 text-xs">
+                                        <p className="text-white/60 text-xs sm:text-sm">
                                             {formatDate(blog.created_at)} · {readTime} min read
                                         </p>
                                     </div>
@@ -206,7 +206,7 @@ export const BlogCard = ({ blog, variant = 'default' }: BlogCardProps) => {
                     {/* Top Content */}
                     <div>
                         {/* Meta Row */}
-                        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mb-2.5">
+                        <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-muted-foreground mb-2.5">
                             <time dateTime={blog.created_at} className="font-medium rounded-full bg-muted px-2.5 py-1">
                                 {formatDate(blog.created_at)}
                             </time>
@@ -215,13 +215,13 @@ export const BlogCard = ({ blog, variant = 'default' }: BlogCardProps) => {
                         </div>
 
                         {/* Title */}
-                        <h3 className="font-semibold text-lg sm:text-xl text-foreground line-clamp-2 group-hover:text-primary transition-colors leading-snug tracking-tight">
+                        <h3 className="font-semibold text-xl sm:text-2xl text-foreground line-clamp-2 group-hover:text-primary transition-colors leading-snug tracking-tight">
                             {blog.title}
                         </h3>
 
                         {/* Subtitle */}
                         {blog.subTitle && (
-                            <p className="mt-2 text-sm sm:text-[15px] text-muted-foreground line-clamp-2">
+                            <p className="mt-2 text-sm sm:text-base text-muted-foreground line-clamp-2 leading-relaxed">
                                 {blog.subTitle}
                             </p>
                         )}
@@ -254,11 +254,11 @@ export const BlogCard = ({ blog, variant = 'default' }: BlogCardProps) => {
 
                             {/* Author Info */}
                             <div className="min-w-0">
-                                <p className="text-sm font-medium text-foreground truncate">
+                                <p className="text-sm sm:text-base font-medium text-foreground truncate">
                                     {blog.author?.full_name || blog.author?.username || 'Anonymous'}
                                 </p>
                                 {blog.author?.followers_count !== undefined && blog.author.followers_count > 0 && (
-                                    <p className="text-[11px] text-muted-foreground">
+                                    <p className="text-xs sm:text-sm text-muted-foreground">
                                         {blog.author.followers_count.toLocaleString()} followers
                                     </p>
                                 )}
