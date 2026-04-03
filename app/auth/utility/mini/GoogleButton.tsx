@@ -6,7 +6,7 @@ export const GoogleButton = () => {
         <form action={signinWithGoogle}>
             <button
                 type="submit"
-                className="flex justify-center items-center gap-2 p-4 bg-foreground/10 text-muted-foreground border-secondary border-2 rounded-md w-full">
+                className="flex justify-center items-center gap-2 p-4 bg-primary text-muted-foreground border-secondary border-2 rounded-md w-full">
                 <img
                     src={CONSTANT.Icons.app.GoogleIcon}
                     className="size-5 rounded-full"
