@@ -69,9 +69,6 @@ export default function Header() {
                   </div>
                 )
               }
-              <div className="w-1 h-full border-l border-separate max-sm:hidden">
-
-              </div>
               {/* Always show */}
               <Button asChild size="sm" variant={"default"}>
                 <Link href="/auth/login">About Me</Link>
