@@ -240,7 +240,7 @@ export default function Portfolio() {
 
     const projects = [
         {
-            icon: '📦',
+            icon: '',
             title: 'apt-tracker',
             subtitle: 'Linux Package Audit Utility',
             date: 'Mar 2026',
@@ -250,7 +250,7 @@ export default function Portfolio() {
             link: 'https://github.com/zero1byte/apt-tracker',
         },
         {
-            icon: '🔍',
+            icon: '',
             title: 'Timestomping Detection in NTFS',
             subtitle: 'Security Tool Development',
             date: 'Mar 2026',
@@ -260,7 +260,7 @@ export default function Portfolio() {
             link: 'https://github.com/zero1byte/timestomping-detections-in-ntfs',
         },
         {
-            icon: '📝',
+            icon: '',
             title: 'Zerobytes.me Blog Portfolio',
             subtitle: 'Full-Stack Blog & Portfolio Platform',
             date: 'Nov 2025 – Present',
