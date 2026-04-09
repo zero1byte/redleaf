@@ -14,7 +14,7 @@ export default function Header() {
   useEffect(() => {
     if (isMenuOpen) {
       document.body.style.overflow = 'hidden';
-    } else {
+    } else {  
       document.body.style.overflow = 'auto';
     }
   }, [isMenuOpen])
@@ -36,7 +36,7 @@ export default function Header() {
             {/* Logo */}
             <div>
               <Link href="/" className="flex items-center gap-2">
-                <img src={CONSTANT.LOGO}  alt="Logo" className="h-8 w-8 rounded-sm" />
+                <img src={CONSTANT.LOGO} alt="Logo" className="h-8 w-8 rounded-sm" />
               </Link>
             </div>
             <div className="flex gap-5 items-center font-semibold ">
@@ -71,7 +71,7 @@ export default function Header() {
               }
               {/* Always show */}
               <Button asChild size="sm" variant={"default"}>
-                <Link href="/auth/login">About Me</Link>
+                <Link href="/whoami">whoami</Link>
               </Button>
               <ThemeSwitcher />
             </div>

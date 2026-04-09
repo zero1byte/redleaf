@@ -103,13 +103,13 @@ export const BlogCard = ({ blog, variant = 'default' }: BlogCardProps) => {
                                             <img src={blog.author.avatar_url} alt="" className="w-full h-full object-cover" />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center bg-white/20 text-white font-semibold">
-                                                {(blog.author?.full_name || blog.author?.username || 'A').charAt(0).toUpperCase()}
+                                                {( blog.author?.username ||blog.author?.full_name || 'A').charAt(0).toUpperCase()}
                                             </div>
                                         )}
                                     </div>
                                     <div>
                                         <p className="text-white font-medium text-base sm:text-lg">
-                                            {blog.author?.full_name || blog.author?.username || 'Anonymous'}
+                                            {blog.author?.username || blog.author?.full_name || 'Anonymous'}
                                         </p>
                                         <p className="text-white/60 text-xs sm:text-sm">
                                             {formatDate(blog.created_at)} · {readTime} min read
@@ -156,7 +156,7 @@ export const BlogCard = ({ blog, variant = 'default' }: BlogCardProps) => {
                             {blog.title}
                         </h3>
                         <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
-                            <span>{blog.author?.full_name || blog.author?.username}</span>
+                            <span>{blog.author?.username || blog.author?.full_name || 'Anonymous'}</span>
                             <span>·</span>
                             <span>{readTime} min</span>
                         </div>
@@ -255,7 +255,7 @@ export const BlogCard = ({ blog, variant = 'default' }: BlogCardProps) => {
                             {/* Author Info */}
                             <div className="min-w-0">
                                 <p className="text-sm sm:text-base font-semibold text-foreground truncate">
-                                    {blog.author?.full_name || blog.author?.username || 'Anonymous'}
+                                    {blog.author?.username || blog.author?.full_name || 'Anonymous'}
                                 </p>
                                 {blog.author?.followers_count !== undefined && blog.author.followers_count > 0 && (
                                     <p className="text-xs sm:text-sm text-muted-foreground/70">

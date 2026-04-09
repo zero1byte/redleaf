@@ -55,12 +55,35 @@ const renderInlineFormatting = (text: string): React.ReactNode => {
 // ─── Blog Content Renderer ────────────────────────────────────────────────────
 const BlogContent = ({ content }: { content: string }) => {
     const renderContent = () => {
-        const blocks = content.split('\n\n');
         const elements: JSX.Element[] = [];
         let listItems: { type: 'bullet' | 'numbered'; content: string; indent: number }[] = [];
-        let inCodeBlock = false;
-        let codeContent: string[] = [];
-        let codeLang = '';
+        
+        // Extract code blocks first with positions
+        const codeBlockRegex = /```([\w]*)\n([\s\S]*?)```/g;
+        const codeBlocks: Array<{ placeholder: string; lang: string; code: string }> = [];
+        let processedContent = content;
+        let codeBlockIndex = 0;
+
+        processedContent = processedContent.replace(codeBlockRegex, (match) => {
+            const langMatch = match.match(/```([\w]*)\n/);
+            const codeMatch = match.match(/```([\w]*)\n([\s\S]*?)```/);
+            const lang = langMatch?.[1] || '';
+            const code = codeMatch?.[2]?.trim() || '';
+            
+            const placeholder = `__CODE_BLOCK_${codeBlockIndex}__`;
+            codeBlocks.push({
+                placeholder,
+                lang,
+                code
+            });
+            codeBlockIndex++;
+            
+            // Replace with placeholder surrounded by newlines to preserve structure
+            return `\n${placeholder}\n`;
+        });
+
+        // Split by double newlines for paragraph separation
+        const blocks = processedContent.split('\n\n');
 
         const flushList = () => {
             if (listItems.length === 0) return;
@@ -84,43 +107,34 @@ const BlogContent = ({ content }: { content: string }) => {
         blocks.forEach((block, index) => {
             const trimmed = block.trim();
 
-            // Code block open/close
-            if (trimmed.startsWith('```')) {
-                if (!inCodeBlock) {
-                    inCodeBlock = true;
-                    codeContent = [];
-                    const firstLine = trimmed.slice(3);
-                    codeLang = firstLine.split('\n')[0] || '';
-                    const rest = firstLine.slice(codeLang.length).trim();
-                    if (rest) codeContent.push(rest);
-                } else {
-                    inCodeBlock = false;
-                    const code = codeContent.join('\n').trim();
+            if (!trimmed) return;
+
+            // Check if this is a code block placeholder
+            if (trimmed.startsWith('__CODE_BLOCK_') && trimmed.endsWith('__')) {
+                const blockIndex = parseInt(trimmed.match(/\d+/)?.[0] || '0');
+                if (codeBlocks[blockIndex]) {
+                    const { lang, code } = codeBlocks[blockIndex];
                     flushList();
                     elements.push(
                         <div key={`code-${index}`} className="my-8 rounded-xl overflow-hidden border border-border/60">
-                            {codeLang && (
+                            {lang && (
                                 <div className="flex items-center gap-2 px-4 py-2.5 bg-muted/80 border-b border-border/60">
                                     <div className="flex gap-1.5">
                                         <span className="w-3 h-3 rounded-full bg-red-400/70" />
                                         <span className="w-3 h-3 rounded-full bg-amber-400/70" />
                                         <span className="w-3 h-3 rounded-full bg-green-400/70" />
                                     </div>
-                                    <span className="ml-2 text-xs font-mono text-muted-foreground uppercase tracking-wider">{codeLang}</span>
+                                    <span className="ml-2 text-xs font-mono text-muted-foreground uppercase tracking-wider">{lang}</span>
                                 </div>
                             )}
                             <pre className="overflow-x-auto bg-muted/50 p-5">
-                                <code className="text-sm font-mono text-foreground leading-relaxed">{code}</code>
+                                <code className="text-sm font-mono text-foreground leading-relaxed whitespace-pre-wrap break-words">{code}</code>
                             </pre>
                         </div>
                     );
-                    codeContent = [];
-                    codeLang = '';
                 }
                 return;
             }
-
-            if (inCodeBlock) { codeContent.push(block); return; }
 
             // Divider
             if (trimmed === '---') {
@@ -168,6 +182,17 @@ const BlogContent = ({ content }: { content: string }) => {
                     <h3 key={`h3-${index}`} className="mt-10 mb-3 text-xl sm:text-2xl font-semibold text-foreground leading-snug">
                         {renderInlineFormatting(trimmed.slice(4))}
                     </h3>
+                );
+                return;
+            }
+
+            // H4
+            if (trimmed.startsWith('#### ')) {
+                flushList();
+                elements.push(
+                    <h4 key={`h4-${index}`} className="mt-8 mb-2 text-lg font-semibold text-foreground">
+                        {renderInlineFormatting(trimmed.slice(5))}
+                    </h4>
                 );
                 return;
             }
