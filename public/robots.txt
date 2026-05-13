@@ -1,0 +1,16 @@
+# *
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /api
+Disallow: /auth
+
+# Googlebot
+User-agent: Googlebot
+Allow: /
+
+# Host
+Host: https://zerobytes.me
+
+# Sitemaps
+Sitemap: https://zerobytes.me/sitemap.xml

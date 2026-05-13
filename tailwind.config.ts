@@ -10,7 +10,31 @@ export default {
   ],
   theme: {
   	extend: {
+      fontFamily: {
+        sans: ['DM Sans', 'sans-serif'],
+        mono: ['DM Mono', 'monospace'],
+      },
   		colors: {
+        // Portfolio custom colors
+        portfolio: {
+          bg: '#F7F6F3',
+          surface: '#FFFFFF',
+          'surface-2': '#F0EEE9',
+          border: '#E5E2DB',
+          'border-strong': '#C8C4BB',
+          text: '#1A1A18',
+          'text-2': '#52524E',
+          'text-3': '#8A8880',
+          accent: '#1B4332',
+          'accent-light': '#D8F3DC',
+          'accent-mid': '#40916C',
+          'accent-pale': '#F0FAF4',
+          blue: '#1E3A5F',
+          'blue-light': '#DBEAFE',
+          'blue-pale': '#F0F6FF',
+          amber: '#78350F',
+          'amber-light': '#FEF3C7',
+        },
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
   			card: {
@@ -68,9 +92,6 @@ export default {
   			'4xl': ['2.25rem', { lineHeight: '2.5rem', letterSpacing: '-0.02em' }],
   			'5xl': ['3rem', { lineHeight: '3.5rem', letterSpacing: '-0.02em' }],
   			'6xl': ['3.75rem', { lineHeight: '4.5rem', letterSpacing: '-0.03em' }],
-  		},
-  		fontFamily: {
-  			sans: ['system-ui', 'sans-serif'],
   		},
   		letterSpacing: {
   			tighter: '-0.05em',
