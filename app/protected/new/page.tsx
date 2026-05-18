@@ -6,7 +6,7 @@ import type { Blog } from "@/app/api/blogs/route";
 import axios, { AxiosResponse } from "axios";
 import { ImageIcon, Bold, Heading1, Heading2, Heading3, List, ListOrdered, Quote, Code, Minus, Italic, Underline, Link, Trash2, X } from "lucide-react";
 
-type BlockType = "paragraph" | "heading1" | "heading2" | "heading3" | "bold" | "image" | "bullet-list" | "numbered-list" | "quote" | "code" | "divider";
+type BlockType = "paragraph" | "heading1" | "heading2" | "heading3" | "bold" | "image" | "bullet-list" | "numbered-list" | "quote" | "code" | "divider" | "urls";
 
 interface ContentBlock {
     id: string;
@@ -32,6 +32,7 @@ const slashOptions: SlashOption[] = [
     { type: "quote", label: "Quote", icon: <Quote className="w-4 h-4" />, description: "Add a quote block" },
     { type: "code", label: "Code Block", icon: <Code className="w-4 h-4" />, description: "Add a code snippet" },
     { type: "image", label: "Image", icon: <ImageIcon className="w-4 h-4" />, description: "Upload or embed an image" },
+    { type: "urls", label: "Resources", icon: <Link className="w-4 h-4" />, description: "Add resource links" },
     { type: "divider", label: "Divider", icon: <Minus className="w-4 h-4" />, description: "Add a horizontal line" },
 ];
 
@@ -57,6 +58,11 @@ const SlashCommandEditor = ({ onChange }: SlashCommandEditorProps): JSX.Element 
     const [imageInputMode, setImageInputMode] = useState<"file" | "url">("file");
     const [imageUrlInput, setImageUrlInput] = useState("");
     const [imageModalBlockId, setImageModalBlockId] = useState<string | null>(null);
+    const [showUrlModal, setShowUrlModal] = useState(false);
+    const [urlModalBlockId, setUrlModalBlockId] = useState<string | null>(null);
+    const [urlList, setUrlList] = useState<Array<{ title: string; url: string }>>([]);
+    const [currentUrlTitle, setCurrentUrlTitle] = useState("");
+    const [currentUrlValue, setCurrentUrlValue] = useState("");
     const editorRef = useRef<HTMLDivElement>(null);
     const inputRefs = useRef<Map<string, HTMLInputElement | HTMLTextAreaElement>>(new Map());
     const menuRef = useRef<HTMLDivElement>(null);
@@ -90,6 +96,7 @@ const SlashCommandEditor = ({ onChange }: SlashCommandEditorProps): JSX.Element 
                     case "quote": return `> ${block.content}`;
                     case "code": return `\`\`\`\n${block.content}\n\`\`\``;
                     case "image": return `![image](${block.content})`;
+                    case "urls": return `[URLS]${block.content}[/URLS]`;
                     case "divider": return "---";
                     default: return block.content;
                 }
@@ -539,6 +546,18 @@ const SlashCommandEditor = ({ onChange }: SlashCommandEditorProps): JSX.Element 
             setTimeout(() => {
                 triggerImageUpload(blockId);
             }, 100);
+        } else if (type === "urls") {
+            // For URLs, open modal to add resources
+            setUrlModalBlockId(blockId);
+            setUrlList([]);
+            setCurrentUrlTitle("");
+            setCurrentUrlValue("");
+            setShowUrlModal(true);
+            
+            // Update block type
+            setBlocks(prev => prev.map(b =>
+                b.id === blockId ? { ...b, type, content: "", indent: 0 } : b
+            ));
         } else {
             setBlocks(prev => prev.map(b =>
                 b.id === blockId ? { ...b, type, content: b.content.replace(/\/$/, ""), indent: 0 } : b
@@ -588,6 +607,55 @@ const SlashCommandEditor = ({ onChange }: SlashCommandEditorProps): JSX.Element 
         }
     };
 
+    // Handle adding a URL to the list
+    const handleAddUrl = () => {
+        if (!currentUrlTitle.trim() || !currentUrlValue.trim()) {
+            alert("Please enter both title and URL");
+            return;
+        }
+
+        // Validate URL
+        try {
+            new URL(currentUrlValue.trim());
+        } catch {
+            alert("Please enter a valid URL");
+            return;
+        }
+
+        setUrlList([...urlList, { title: currentUrlTitle.trim(), url: currentUrlValue.trim() }]);
+        setCurrentUrlTitle("");
+        setCurrentUrlValue("");
+    };
+
+    // Handle removing a URL from the list
+    const handleRemoveUrl = (index: number) => {
+        setUrlList(urlList.filter((_, i) => i !== index));
+    };
+
+    // Handle saving URLs to the block
+    const handleSaveUrls = () => {
+        if (urlList.length === 0) {
+            alert("Please add at least one URL");
+            return;
+        }
+
+        if (!urlModalBlockId) return;
+
+        // Format URLs as: title1|url1|||title2|url2
+        const urlContent = urlList.map(item => `${item.title}|${item.url}`).join("|||");
+
+        setBlocks(prev =>
+            prev.map(b =>
+                b.id === urlModalBlockId ? { ...b, content: urlContent } : b
+            )
+        );
+
+        setShowUrlModal(false);
+        setUrlList([]);
+        setCurrentUrlTitle("");
+        setCurrentUrlValue("");
+    };
+
     // Get list number considering previous items of same type
     const getListNumber = (block: ContentBlock, index: number) => {
         let count = 1;
@@ -628,6 +696,8 @@ const SlashCommandEditor = ({ onChange }: SlashCommandEditorProps): JSX.Element 
                     return `${baseClasses} font-mono text-sm bg-muted/50 p-2 rounded min-h-[32px]`;
                 case "image":
                     return `${baseClasses} text-sm text-muted-foreground`;
+                case "urls":
+                    return `${baseClasses} text-sm text-muted-foreground`;
                 default:
                     return `${baseClasses} text-lg sm:text-xl leading-relaxed min-h-[32px]`;
             }
@@ -653,6 +723,7 @@ const SlashCommandEditor = ({ onChange }: SlashCommandEditorProps): JSX.Element 
                 case "quote": return "Quote (empty Enter to exit)";
                 case "code": return "Code (empty Enter to exit)";
                 case "image": return "Click to upload image...";
+                case "urls": return "Resources will be displayed here";
                 default: return "Type '/' for commands...";
             }
         };
@@ -792,6 +863,53 @@ const SlashCommandEditor = ({ onChange }: SlashCommandEditorProps): JSX.Element 
                                 </div>
                             </div>
                         )}
+                    </div>
+                ) : block.type === "urls" ? (
+                    <div className="w-full flex-1">
+                        {block.content ? (
+                            <div className="space-y-2">
+                                {block.content.split("|||").map((item, idx) => {
+                                    const [title, url] = item.split("|");
+                                    return (
+                                        <a
+                                            key={idx}
+                                            href={url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors text-sm text-primary hover:text-primary/80"
+                                        >
+                                            <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                            </svg>
+                                            <span className="truncate flex-1">{title}</span>
+                                            <svg className="w-3.5 h-3.5 flex-shrink-0 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                            </svg>
+                                        </a>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <div className="p-4 text-center rounded-lg border-2 border-dashed border-primary/50 bg-primary/5 text-muted-foreground text-sm">
+                                <p>Click the edit button to add resources</p>
+                            </div>
+                        )}
+                        <button
+                            onClick={() => {
+                                setUrlModalBlockId(block.id);
+                                const urls = block.content.split("|||").map(item => {
+                                    const [title, url] = item.split("|");
+                                    return { title, url };
+                                }).filter(u => u.title && u.url);
+                                setUrlList(urls);
+                                setCurrentUrlTitle("");
+                                setCurrentUrlValue("");
+                                setShowUrlModal(true);
+                            }}
+                            className="mt-2 px-3 py-2 text-sm bg-primary/10 hover:bg-primary/20 text-primary rounded-lg transition-colors border border-primary/30"
+                        >
+                            Edit Resources
+                        </button>
                     </div>
                 ) : (
                     <textarea
@@ -960,6 +1078,130 @@ const SlashCommandEditor = ({ onChange }: SlashCommandEditorProps): JSX.Element 
                                         {uploadingImages.has(imageModalBlockId || "") ? "Loading..." : "Upload"}
                                     </button>
                                 )}
+                            </div>
+                        </div>
+                    </div>
+                </>
+            )}
+
+            {/* URL Resources Modal */}
+            {showUrlModal && (
+                <>
+                    {/* Backdrop */}
+                    <div
+                        className="fixed inset-0 bg-background/50 backdrop-blur-sm z-40"
+                        onClick={() => {
+                            setShowUrlModal(false);
+                            setUrlList([]);
+                            setCurrentUrlTitle("");
+                            setCurrentUrlValue("");
+                        }}
+                    />
+                    {/* Modal */}
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <div className="bg-card border border-border rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+                            {/* Header */}
+                            <div className="sticky top-0 flex items-center justify-between p-6 border-b border-border bg-card/95 backdrop-blur-sm">
+                                <h2 className="text-lg font-semibold text-foreground">Add Resources</h2>
+                                <button
+                                    onClick={() => {
+                                        setShowUrlModal(false);
+                                        setUrlList([]);
+                                        setCurrentUrlTitle("");
+                                        setCurrentUrlValue("");
+                                    }}
+                                    className="p-1 hover:bg-accent rounded-lg transition-colors"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            {/* Content */}
+                            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                                {/* Add URL Form */}
+                                <div className="space-y-4 pb-4 border-b border-border">
+                                    <div>
+                                        <label className="block text-sm font-medium text-foreground mb-2">Title</label>
+                                        <input
+                                            type="text"
+                                            value={currentUrlTitle}
+                                            onChange={(e) => setCurrentUrlTitle(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter") {
+                                                    e.preventDefault();
+                                                    handleAddUrl();
+                                                }
+                                            }}
+                                            placeholder="e.g., GitHub Repository"
+                                            className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all bg-background text-foreground placeholder:text-muted-foreground/50"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-foreground mb-2">URL</label>
+                                        <input
+                                            type="text"
+                                            value={currentUrlValue}
+                                            onChange={(e) => setCurrentUrlValue(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter") {
+                                                    e.preventDefault();
+                                                    handleAddUrl();
+                                                }
+                                            }}
+                                            placeholder="https://example.com"
+                                            className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all bg-background text-foreground placeholder:text-muted-foreground/50"
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={handleAddUrl}
+                                        className="w-full px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg transition-colors border border-primary/30 font-medium"
+                                    >
+                                        Add Resource
+                                    </button>
+                                </div>
+
+                                {/* URLs List */}
+                                {urlList.length > 0 && (
+                                    <div className="space-y-2">
+                                        <h3 className="text-sm font-medium text-foreground">Resources ({urlList.length})</h3>
+                                        {urlList.map((item, idx) => (
+                                            <div key={idx} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border/50">
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-medium text-foreground truncate">{item.title}</p>
+                                                    <p className="text-xs text-muted-foreground truncate">{item.url}</p>
+                                                </div>
+                                                <button
+                                                    onClick={() => handleRemoveUrl(idx)}
+                                                    className="ml-2 p-1 hover:bg-destructive/20 text-destructive rounded-lg transition-colors flex-shrink-0"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Footer */}
+                            <div className="sticky bottom-0 flex gap-3 p-6 border-t border-border bg-card/95 backdrop-blur-sm">
+                                <button
+                                    onClick={() => {
+                                        setShowUrlModal(false);
+                                        setUrlList([]);
+                                        setCurrentUrlTitle("");
+                                        setCurrentUrlValue("");
+                                    }}
+                                    className="flex-1 py-2 px-4 border border-border rounded-lg hover:bg-accent transition-colors font-medium"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleSaveUrls}
+                                    disabled={urlList.length === 0}
+                                    className="flex-1 py-2 px-4 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                                >
+                                    Save Resources
+                                </button>
                             </div>
                         </div>
                     </div>

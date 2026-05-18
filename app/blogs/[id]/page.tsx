@@ -2,6 +2,11 @@ import { JSX } from 'react';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getBlogById } from '@/app/services/blogs/blogs';
+import { getBlogStats } from '@/app/services/blogs/stats';
+import { incrementBlogViews } from '@/app/services/blogs/views';
+import { BlogLikeButton } from '@/components/blogs/BlogLikeButton';
+import { BlogCommentSection } from '@/components/blogs/BlogCommentSection';
+import { getCurrentUser } from '@/lib/supabase/supabase';
 import { Blog } from '@/app/api/blogs/route';
 
 type PageProps = {
@@ -309,8 +314,35 @@ export default async function BlogPage({ params }: PageProps) {
 
     const blog = response.data;
     const readTime = calculateReadTime(blog.contents);
-
     const authorInitial = (blog.author?.full_name || blog.author?.username || 'A').charAt(0).toUpperCase();
+
+    // Increment views
+    await incrementBlogViews(id);
+
+    // Fetch stats
+    const statsResponse = await getBlogStats(id);
+    const stats = !statsResponse.isError ? statsResponse.data : null;
+
+    // Get current user
+    const userRes = await getCurrentUser();
+    const currentUser = userRes.data?.user;
+    const isLoggedIn = !!currentUser;
+
+    // Extract URLs from content
+    const urlsMatch = blog.contents.match(/\[URLS\]([\s\S]*?)\[\/URLS\]/);
+    let urls: Array<{ title: string; url: string }> = [];
+    let cleanContent = blog.contents;
+
+    if (urlsMatch) {
+        const urlsContent = urlsMatch[1];
+        urls = urlsContent.split("|||").map(item => {
+            const [title, url] = item.split("|");
+            return { title: title?.trim() || "", url: url?.trim() || "" };
+        }).filter(u => u.title && u.url);
+        
+        // Remove [URLS]...[/URLS] from content
+        cleanContent = blog.contents.replace(/\[URLS\][\s\S]*?\[\/URLS\]/, "").trim();
+    }
 
     return (
         <main className="min-h-screen bg-background">
@@ -396,6 +428,17 @@ export default async function BlogPage({ params }: PageProps) {
                                 <ClockIcon />
                                 {readTime} min read
                             </span>
+                            {stats && (
+                                <>
+                                    <span className="flex items-center gap-1.5">
+                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                        </svg>
+                                        {stats.views?.toLocaleString()} views
+                                    </span>
+                                </>
+                            )}
                         </div>
                     </div>
 
@@ -405,8 +448,55 @@ export default async function BlogPage({ params }: PageProps) {
 
                 {/* ── Body ── */}
                 <div className="mt-10">
-                    <BlogContent content={blog.contents} />
+                    <BlogContent content={cleanContent} />
                 </div>
+
+                {/* ── URLs/Resources Section ── */}
+                {urls.length > 0 && (
+                    <div className="mt-12 pt-8 border-t border-border/60">
+                        <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.658 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                            </svg>
+                            Resources
+                        </h3>
+                        <ul className="space-y-2">
+                            {urls.map((urlItem, index) => (
+                                <li key={index}>
+                                    <a
+                                        href={urlItem.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors text-sm text-primary hover:text-primary/80"
+                                    >
+                                        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                        </svg>
+                                        <span className="truncate flex-1">{urlItem.title}</span>
+                                        <svg className="w-3.5 h-3.5 flex-shrink-0 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </a>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+
+                {/* ── Interactions ── */}
+                <div className="mt-12 pt-8 border-t border-border/60">
+                    <div className="flex items-start gap-4 sm:gap-6">
+                        <BlogLikeButton blogId={id} isLoggedIn={isLoggedIn} />
+                    </div>
+                </div>
+
+                {/* ── Comments Section ── */}
+                <BlogCommentSection 
+                    blogId={id} 
+                    isLoggedIn={isLoggedIn}
+                    currentUserAvatar={currentUser?.user_metadata?.avatar_url}
+                    currentUsername={currentUser?.user_metadata?.full_name || currentUser?.email?.split('@')[0]}
+                />
 
             </div>
         </main>

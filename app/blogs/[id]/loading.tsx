@@ -1,7 +1,5 @@
-import { Loader } from "@/components/ui/loader";
+import { BlogDetailSkeleton } from "@/components/loaders/blogDetailSkeleton";
 
 export default function Loading() {
-  return (
-    <Loader text="Loading blog..." />
-  );
+  return <BlogDetailSkeleton />;
 }

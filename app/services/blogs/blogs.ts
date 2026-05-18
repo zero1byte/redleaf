@@ -18,6 +18,6 @@ export const getBlogById = async (id: string) => {
         const data = response.data;
         return { data: data.data, isError: data.isError, error: data.error };
     } catch (error) {
-        return { data: error, isError: true, error: "Failed to fetch blogs. Please try again." };
+        return { data: error, isError: true, error: "Failed to fetch blog. Please try again." };
     }
 }
