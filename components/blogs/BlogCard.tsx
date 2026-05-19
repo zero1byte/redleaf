@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { Blog } from '@/app/api/blogs/route';
-import { getBlogStats } from '@/app/services/blogs/stats';
+// import { getBlogStats } from '@/app/services/blogs/stats';
 
 interface BlogCardProps {
     blog: Blog;
@@ -52,7 +52,7 @@ const cleanContentForPreview = (content: string): string => {
 export const BlogCard = async ({ blog, variant = 'default' }: BlogCardProps) => {
     const readTime = calculateReadTime(blog.contents);
     const cleanedContent = cleanContentForPreview(blog.contents);
-    const stats = await getBlogStats(blog.id);
+    // const stats = await getBlogStats(blog.id);
 
     // Featured Card - Large hero-style card
     if (variant === 'featured') {
@@ -282,7 +282,7 @@ export const BlogCard = async ({ blog, variant = 'default' }: BlogCardProps) => 
                     </div>
 
                     {/* Stats Row with Glass Effect */}
-                    {stats && !stats.isError && stats.data && (
+                    {/* {stats && !stats.isError && stats.data && (
                         <div className="mt-4 pt-4 border-t border-white/15 flex items-center justify-start gap-6">
                             <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
                                 <svg className="w-4 h-4 text-muted-foreground/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -300,7 +300,7 @@ export const BlogCard = async ({ blog, variant = 'default' }: BlogCardProps) => 
                                 <span className="text-muted-foreground/50">shares</span>
                             </div>
                         </div>
-                    )}
+                    )} */}
                 </div>
             </article>
         </Link>

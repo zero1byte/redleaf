@@ -2,7 +2,7 @@ import { JSX } from 'react';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getBlogById } from '@/app/services/blogs/blogs';
-import { getBlogStats } from '@/app/services/blogs/stats';
+// import { getBlogStats } from '@/app/services/blogs/stats';
 import { incrementBlogViews } from '@/app/services/blogs/views';
 import { getCurrentUser } from '@/lib/supabase/supabase';
 import { Blog } from '@/app/api/blogs/route';
@@ -440,8 +440,8 @@ export default async function BlogPage({ params }: PageProps) {
     await incrementBlogViews(id);
 
     // Fetch stats
-    const statsResponse = await getBlogStats(id);
-    const stats = !statsResponse.isError ? statsResponse.data : null;
+    // const statsResponse = await getBlogStats(id);
+    // const stats = !statsResponse.isError ? statsResponse.data : null;
 
     // Get current user
     const userRes = await getCurrentUser();
@@ -548,7 +548,7 @@ export default async function BlogPage({ params }: PageProps) {
                                 <ClockIcon />
                                 {readTime} min read
                             </span>
-                            {stats && (
+                            {/* {stats && (
                                 <>
                                     <span className="flex items-center gap-1.5">
                                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -558,7 +558,7 @@ export default async function BlogPage({ params }: PageProps) {
                                         {stats.views?.toLocaleString()} views
                                     </span>
                                 </>
-                            )}
+                            )} */}
                         </div>
                     </div>
 
