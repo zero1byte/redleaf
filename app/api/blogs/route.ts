@@ -60,6 +60,8 @@ export async function GET(req: NextRequest) {
                 .from("blogs_with_author")
                 .select(`*`)
                 .eq("id", id)
+                .eq("is_draft", false)
+                .eq('is_deleted', false)
                 .single();
             if (error) {
                 return NextResponse.json({ error: error.message, isError: true, data }, { status: 500 });
@@ -69,7 +71,9 @@ export async function GET(req: NextRequest) {
         let blogsQuery = supabase
             .schema("blogs")
             .from("blogs_with_author")
-            .select(`*`);
+            .select(`*`)
+            .eq("is_draft", false)
+            .eq('is_deleted', false);
 
         if (q.length > 0) {
             const normalizedQuery = q.replace(/,/g, ' ').replace(/\s+/g, ' ').trim();
@@ -86,5 +90,33 @@ export async function GET(req: NextRequest) {
     } catch (error) {
         console.log(error);
         return NextResponse.json({ error: "Unknown error", isError: true, data: error }, { status: 500 });
+    }
+}
+
+export async function DELETE(req: NextRequest) {
+    const supabase = await createClient();
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+    const user = await supabase.auth.getUser();
+
+    if (!user.data.user) {
+        return NextResponse.json({ error: "Unauthorized", isError: true }, { status: 401 });
+    }
+
+    try {
+        const { data, error } = await supabase
+            .schema("blogs")
+            .from("blogs")
+            .update({ is_deleted: true })
+            .eq("id", id)
+            .eq("author_id", user.data.user.id)
+
+        if (error) {
+            return NextResponse.json({ error: error.message, isError: true, data }, { status: 500 });
+        }
+
+        return NextResponse.json({ data, isError: false }, { status: 200 });
+    } catch (error) {
+        return NextResponse.json({ error: "Unknown error", isError: true }, { status: 500 });
     }
 }

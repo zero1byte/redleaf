@@ -36,25 +36,106 @@ const calculateReadTime = (content: string): number => {
 
 // ─── Inline Formatting ────────────────────────────────────────────────────────
 const renderInlineFormatting = (text: string): React.ReactNode => {
-    const parts = text.split(
-        /(\*\*[^*]+\*\*|\*[^*]+\*|<u>[^<]+<\/u>|\[[^\]]+\]\([^)]+\))/g
-    );
-    return parts.map((part, i) => {
-        if (part.startsWith('**') && part.endsWith('**'))
-            return <strong key={i} className="font-semibold text-foreground">{part.slice(2, -2)}</strong>;
-        if (part.startsWith('*') && part.endsWith('*') && !part.startsWith('**'))
-            return <em key={i}>{part.slice(1, -1)}</em>;
-        if (part.startsWith('<u>') && part.endsWith('</u>'))
-            return <u key={i}>{part.slice(3, -4)}</u>;
-        const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
-        if (linkMatch)
-            return (
-                <a key={i} href={linkMatch[2]} className="text-primary underline underline-offset-2 hover:opacity-75 transition-opacity" target="_blank" rel="noopener noreferrer">
+    if (!text) return '';
+
+    const parts: React.ReactNode[] = [];
+    let remaining = text;
+    let index = 0;
+
+    while (remaining.length > 0) {
+        // Check for bold
+        const boldMatch = remaining.match(/^\*\*(.+?)\*\*/);
+        if (boldMatch) {
+            parts.push(
+                <strong key={`bold-${index}`} className="font-semibold text-foreground">
+                    {renderInlineFormatting(boldMatch[1])}
+                </strong>
+            );
+            remaining = remaining.slice(boldMatch[0].length);
+            index++;
+            continue;
+        }
+
+        // Check for italic
+        const italicMatch = remaining.match(/^\*(.+?)\*/);
+        if (italicMatch) {
+            parts.push(
+                <em key={`italic-${index}`} className="italic">
+                    {renderInlineFormatting(italicMatch[1])}
+                </em>
+            );
+            remaining = remaining.slice(italicMatch[0].length);
+            index++;
+            continue;
+        }
+
+        // Check for underline
+        const underlineMatch = remaining.match(/^__(.+?)__/);
+        if (underlineMatch) {
+            parts.push(
+                <u key={`underline-${index}`} className="underline decoration-primary/50">
+                    {renderInlineFormatting(underlineMatch[1])}
+                </u>
+            );
+            remaining = remaining.slice(underlineMatch[0].length);
+            index++;
+            continue;
+        }
+
+        // Check for link
+        const linkMatch = remaining.match(/^\[([^\]]+)\]\(([^)]+)\)/);
+        if (linkMatch) {
+            parts.push(
+                <a
+                    key={`link-${index}`}
+                    href={linkMatch[2]}
+                    className="text-primary underline underline-offset-2 hover:opacity-75 transition-opacity"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
                     {linkMatch[1]}
                 </a>
             );
-        return part;
-    });
+            remaining = remaining.slice(linkMatch[0].length);
+            index++;
+            continue;
+        }
+
+        // Check for inline code
+        const codeMatch = remaining.match(/^`(.+?)`/);
+        if (codeMatch) {
+            parts.push(
+                <code key={`code-${index}`} className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono text-foreground/90">
+                    {codeMatch[1]}
+                </code>
+            );
+            remaining = remaining.slice(codeMatch[0].length);
+            index++;
+            continue;
+        }
+
+        // Regular text - consume until next formatting character
+        const nextMatch = remaining.match(/[\*_\[`]/);
+        if (nextMatch && nextMatch.index && nextMatch.index > 0) {
+            const textContent = remaining.slice(0, nextMatch.index);
+            if (textContent) {
+                parts.push(textContent);
+            }
+            remaining = remaining.slice(nextMatch.index);
+        } else if (nextMatch) {
+            // Next match is at beginning, continue
+            remaining = remaining.slice(1);
+        } else {
+            // No more formatting, add remaining text
+            if (remaining) {
+                parts.push(remaining);
+            }
+            remaining = '';
+        }
+        index++;
+    }
+
+    return parts.length === 0 ? text : parts;
 };
 
 // ─── Blog Content Renderer ────────────────────────────────────────────────────
@@ -484,19 +565,19 @@ export default async function BlogPage({ params }: PageProps) {
                 )}
 
                 {/* ── Interactions ── */}
-                <div className="mt-12 pt-8 border-t border-border/60">
+                {/* <div className="mt-12 pt-8 border-t border-border/60">
                     <div className="flex items-start gap-4 sm:gap-6">
                         <BlogLikeButton blogId={id} isLoggedIn={isLoggedIn} />
                     </div>
-                </div>
+                </div> */}
 
                 {/* ── Comments Section ── */}
-                <BlogCommentSection 
+                {/* <BlogCommentSection 
                     blogId={id} 
                     isLoggedIn={isLoggedIn}
                     currentUserAvatar={currentUser?.user_metadata?.avatar_url}
                     currentUsername={currentUser?.user_metadata?.full_name || currentUser?.email?.split('@')[0]}
-                />
+                /> */}
 
             </div>
         </main>

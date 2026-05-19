@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import type { Blog } from "@/app/api/blogs/route";
 import axios, { AxiosResponse } from "axios";
 import { ImageIcon, Bold, Heading1, Heading2, Heading3, List, ListOrdered, Quote, Code, Minus, Italic, Underline, Link, Trash2, X } from "lucide-react";
+import { draftBlog } from "@/app/api/blogs/draft/route";
 
 type BlockType = "paragraph" | "heading1" | "heading2" | "heading3" | "bold" | "image" | "bullet-list" | "numbered-list" | "quote" | "code" | "divider" | "urls";
 
@@ -38,12 +39,108 @@ const slashOptions: SlashOption[] = [
 
 interface SlashCommandEditorProps {
     onChange: (content: string) => void;
+    initialContent?: string;
 }
 
-const SlashCommandEditor = ({ onChange }: SlashCommandEditorProps): JSX.Element => {
-    const [blocks, setBlocks] = useState<ContentBlock[]>([
-        { id: crypto.randomUUID(), type: "paragraph", content: "", indent: 0 }
-    ]);
+// Function to parse content string back into blocks
+const parseContentIntoBlocks = (contentString: string): ContentBlock[] => {
+    if (!contentString.trim()) {
+        return [{ id: crypto.randomUUID(), type: "paragraph", content: "", indent: 0 }];
+    }
+
+    const blocks: ContentBlock[] = [];
+    const lines = contentString.split('\n\n');
+
+    for (const line of lines) {
+        if (!line.trim()) continue;
+
+        const trimmed = line.trim();
+        let type: BlockType = "paragraph";
+        let content = trimmed;
+        let indent = 0;
+
+        // Heading 1
+        if (trimmed.startsWith('# ')) {
+            type = "heading1";
+            content = trimmed.slice(2);
+        }
+        // Heading 2
+        else if (trimmed.startsWith('## ')) {
+            type = "heading2";
+            content = trimmed.slice(3);
+        }
+        // Heading 3
+        else if (trimmed.startsWith('### ')) {
+            type = "heading3";
+            content = trimmed.slice(4);
+        }
+        // Divider
+        else if (trimmed === '---') {
+            type = "divider";
+            content = '';
+        }
+        // Bold block
+        else if (trimmed.startsWith('**') && trimmed.endsWith('**')) {
+            type = "bold";
+            content = trimmed.slice(2, -2);
+        }
+        // Quote
+        else if (trimmed.startsWith('> ')) {
+            type = "quote";
+            content = trimmed.slice(2);
+        }
+        // Bullet list
+        else if (trimmed.match(/^(\s*)- /)) {
+            type = "bullet-list";
+            const match = trimmed.match(/^(\s*)- /);
+            indent = match ? match[1].length / 2 : 0;
+            content = trimmed.replace(/^\s*- /, '');
+        }
+        // Numbered list
+        else if (trimmed.match(/^(\s*)\d+\. /)) {
+            type = "numbered-list";
+            const match = trimmed.match(/^(\s*)\d+\. /);
+            indent = match ? match[1].length / 2 : 0;
+            content = trimmed.replace(/^\s*\d+\. /, '');
+        }
+        // Code block
+        else if (trimmed.startsWith('```') && trimmed.includes('\n')) {
+            type = "code";
+            const codeMatch = trimmed.match(/^```[\w]*\n([\s\S]*?)\n```$/);
+            content = codeMatch ? codeMatch[1] : trimmed.slice(3);
+        }
+        // Image
+        else if (trimmed.match(/^!\[([^\]]*)\]\(([^)]+)\)$/)) {
+            type = "image";
+            const imgMatch = trimmed.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+            content = imgMatch ? imgMatch[2] : trimmed;
+        }
+        // URLs block
+        else if (trimmed.startsWith('[URLS]') && trimmed.endsWith('[/URLS]')) {
+            type = "urls";
+            content = trimmed.slice(6, -7);
+        }
+
+        blocks.push({
+            id: crypto.randomUUID(),
+            type,
+            content,
+            indent
+        });
+    }
+
+    // Ensure at least one empty paragraph
+    if (blocks.length === 0) {
+        blocks.push({ id: crypto.randomUUID(), type: "paragraph", content: "", indent: 0 });
+    }
+
+    return blocks;
+};
+
+const SlashCommandEditor = ({ onChange, initialContent }: SlashCommandEditorProps): JSX.Element => {
+    const [blocks, setBlocks] = useState<ContentBlock[]>(() =>
+        initialContent ? parseContentIntoBlocks(initialContent) : [{ id: crypto.randomUUID(), type: "paragraph", content: "", indent: 0 }]
+    );
     const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
     const [showSlashMenu, setShowSlashMenu] = useState(false);
     const [slashMenuPosition, setSlashMenuPosition] = useState({ top: 0, left: 0 });
@@ -63,12 +160,15 @@ const SlashCommandEditor = ({ onChange }: SlashCommandEditorProps): JSX.Element 
     const [urlList, setUrlList] = useState<Array<{ title: string; url: string }>>([]);
     const [currentUrlTitle, setCurrentUrlTitle] = useState("");
     const [currentUrlValue, setCurrentUrlValue] = useState("");
+    const [showLinkModal, setShowLinkModal] = useState(false);
+    const [linkUrl, setLinkUrl] = useState("");
     const editorRef = useRef<HTMLDivElement>(null);
     const inputRefs = useRef<Map<string, HTMLInputElement | HTMLTextAreaElement>>(new Map());
     const menuRef = useRef<HTMLDivElement>(null);
     const optionRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
     const fileInputRef = useRef<HTMLInputElement>(null);
     const searchInputRef = useRef<HTMLInputElement>(null);
+    const linkModalInputRef = useRef<HTMLInputElement>(null);
 
     const filteredOptions = slashOptions.filter(option =>
         option.label.toLowerCase().includes(filterText.toLowerCase())
@@ -80,6 +180,39 @@ const SlashCommandEditor = ({ onChange }: SlashCommandEditorProps): JSX.Element 
     // Check if current block type exits on empty enter
     const exitsOnEmptyEnter = (type: BlockType) =>
         type === "bullet-list" || type === "numbered-list" || type === "quote" || type === "code";
+
+    // Update blocks when initialContent changes (e.g., when draft is loaded)
+    // Only update if content is significantly different to avoid recreating blocks on every keystroke
+    useEffect(() => {
+        if (initialContent && initialContent.trim()) {
+            // Serialize current blocks to compare
+            const currentSerialized = blocks
+                .map(block => {
+                    const indent = "  ".repeat(block.indent || 0);
+                    switch (block.type) {
+                        case "heading1": return `# ${block.content}`;
+                        case "heading2": return `## ${block.content}`;
+                        case "heading3": return `### ${block.content}`;
+                        case "bold": return `**${block.content}**`;
+                        case "bullet-list": return `${indent}- ${block.content}`;
+                        case "numbered-list": return `${indent}1. ${block.content}`;
+                        case "quote": return `> ${block.content}`;
+                        case "code": return `\`\`\`\n${block.content}\n\`\`\``;
+                        case "image": return `![image](${block.content})`;
+                        case "urls": return `[URLS]${block.content}[/URLS]`;
+                        case "divider": return "---";
+                        default: return block.content;
+                    }
+                })
+                .join("\n\n");
+
+            // Only update if the new content is significantly different
+            if (currentSerialized !== initialContent) {
+                const parsedBlocks = parseContentIntoBlocks(initialContent);
+                setBlocks(parsedBlocks);
+            }
+        }
+    }, [initialContent]);
 
     useEffect(() => {
         // Convert blocks to content string for parent component
@@ -133,6 +266,14 @@ const SlashCommandEditor = ({ onChange }: SlashCommandEditorProps): JSX.Element 
         const block = blocks.find(b => b.id === activeBlockId);
         if (!block) return;
 
+        if (format === "link") {
+            // Show link modal instead of directly applying
+            setShowLinkModal(true);
+            setLinkUrl("");
+            setTimeout(() => linkModalInputRef.current?.focus(), 100);
+            return;
+        }
+
         const before = block.content.slice(0, selectedText.start);
         const selected = block.content.slice(selectedText.start, selectedText.end);
         const after = block.content.slice(selectedText.end);
@@ -146,10 +287,7 @@ const SlashCommandEditor = ({ onChange }: SlashCommandEditorProps): JSX.Element 
                 formatted = `*${selected}*`;
                 break;
             case "underline":
-                formatted = `<u>${selected}</u>`;
-                break;
-            case "link":
-                formatted = `[${selected}](url)`;
+                formatted = `__${selected}__`;
                 break;
         }
 
@@ -157,6 +295,117 @@ const SlashCommandEditor = ({ onChange }: SlashCommandEditorProps): JSX.Element 
             b.id === activeBlockId ? { ...b, content: before + formatted + after } : b
         ));
         setShowSelectionToolbar(false);
+    };
+
+    const handleLinkSubmit = () => {
+        if (!linkUrl.trim() || !activeBlockId) return;
+
+        const block = blocks.find(b => b.id === activeBlockId);
+        if (!block) return;
+
+        const before = block.content.slice(0, selectedText.start);
+        const selected = block.content.slice(selectedText.start, selectedText.end);
+        const after = block.content.slice(selectedText.end);
+
+        // Format link as [text](url)
+        const formatted = `[${selected}](${linkUrl.trim()})`;
+
+        setBlocks(prev => prev.map(b =>
+            b.id === activeBlockId ? { ...b, content: before + formatted + after } : b
+        ));
+
+        setShowLinkModal(false);
+        setLinkUrl("");
+        setShowSelectionToolbar(false);
+    };
+
+    // Helper function to render formatted text
+    const renderFormattedText = (text: string): React.ReactNode[] => {
+        if (!text) return [];
+
+        // Regular expressions to match formatting patterns
+        const patterns = [
+            { regex: /\*\*(.+?)\*\*/g, tag: 'strong', replace: '$1' },
+            { regex: /\*(.+?)\*/g, tag: 'em', replace: '$1' },
+            { regex: /__(.+?)__/g, tag: 'u', replace: '$1' },
+            { regex: /\[(.+?)\]\((.+?)\)/g, tag: 'a', replace: '$1' },
+        ];
+
+        let result: React.ReactNode[] = [];
+        let lastIndex = 0;
+        const matches: Array<{ start: number; end: number; tag: string; content: string; href?: string }> = [];
+
+        // Find all formatting matches
+        for (const pattern of patterns) {
+            let match;
+            const regex = new RegExp(pattern.regex.source, 'g');
+            while ((match = regex.exec(text)) !== null) {
+                const tag = pattern.tag;
+                const content = match[1];
+                const href = match[2];
+                matches.push({
+                    start: match.index,
+                    end: match.index + match[0].length,
+                    tag,
+                    content,
+                    href,
+                });
+            }
+        }
+
+        // Sort matches by start position
+        matches.sort((a, b) => a.start - b.start);
+
+        // Handle overlapping matches by removing contained ones
+        const filtered: typeof matches = [];
+        for (const match of matches) {
+            let overlaps = false;
+            for (const existing of filtered) {
+                if (match.start >= existing.start && match.start < existing.end) {
+                    overlaps = true;
+                    break;
+                }
+            }
+            if (!overlaps) {
+                filtered.push(match);
+            }
+        }
+
+        // Build result array
+        lastIndex = 0;
+        for (const match of filtered) {
+            if (lastIndex < match.start) {
+                result.push(text.substring(lastIndex, match.start));
+            }
+
+            if (match.tag === 'strong') {
+                result.push(<strong key={`${match.start}-${match.end}`}>{match.content}</strong>);
+            } else if (match.tag === 'em') {
+                result.push(<em key={`${match.start}-${match.end}`}>{match.content}</em>);
+            } else if (match.tag === 'u') {
+                result.push(<u key={`${match.start}-${match.end}`}>{match.content}</u>);
+            } else if (match.tag === 'a') {
+                result.push(
+                    <a
+                        key={`${match.start}-${match.end}`}
+                        href={match.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline"
+                    >
+                        {match.content}
+                    </a>
+                );
+            }
+
+            lastIndex = match.end;
+        }
+
+        if (lastIndex < text.length) {
+            result.push(text.substring(lastIndex));
+        }
+
+        return result.length === 0 ? [text] : result;
     };
 
     const handleKeyDown = (e: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>, blockId: string) => {
@@ -286,6 +535,22 @@ const SlashCommandEditor = ({ onChange }: SlashCommandEditorProps): JSX.Element 
 
         // Hide selection toolbar on input change
         setShowSelectionToolbar(false);
+
+        // Auto-create new block when typing in last block
+        const blockIndex = blocks.findIndex(b => b.id === blockId);
+        const isLastBlock = blockIndex === blocks.length - 1;
+        if (isLastBlock && value.trim() && block.type === "paragraph" && blocks.length <= 50) {
+            // Create new block after current one if it doesn't exist
+            setBlocks(prev => {
+                // Check if there's already an empty paragraph at the end
+                const lastBlock = prev[prev.length - 1];
+                if (lastBlock.type === "paragraph" && lastBlock.content === "" && lastBlock.id !== blockId) {
+                    return prev;
+                }
+                const newId = crypto.randomUUID();
+                return [...prev, { id: newId, type: "paragraph", content: "", indent: 0 }];
+            });
+        }
 
         // Check for slash command
         if (value.endsWith("/")) {
@@ -426,7 +691,7 @@ const SlashCommandEditor = ({ onChange }: SlashCommandEditorProps): JSX.Element 
                 }
             };
             reader.readAsDataURL(file);
-            
+
             // Close modal after fallback
             setShowImageModal(false);
             setImageUrlInput("");
@@ -553,7 +818,7 @@ const SlashCommandEditor = ({ onChange }: SlashCommandEditorProps): JSX.Element 
             setCurrentUrlTitle("");
             setCurrentUrlValue("");
             setShowUrlModal(true);
-            
+
             // Update block type
             setBlocks(prev => prev.map(b =>
                 b.id === blockId ? { ...b, type, content: "", indent: 0 } : b
@@ -992,11 +1257,10 @@ const SlashCommandEditor = ({ onChange }: SlashCommandEditorProps): JSX.Element 
                                             setImageInputMode("file");
                                             setImageUrlInput("");
                                         }}
-                                        className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
-                                            imageInputMode === "file"
-                                                ? "bg-primary text-primary-foreground"
-                                                : "bg-muted text-muted-foreground hover:bg-muted/80"
-                                        }`}
+                                        className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${imageInputMode === "file"
+                                            ? "bg-primary text-primary-foreground"
+                                            : "bg-muted text-muted-foreground hover:bg-muted/80"
+                                            }`}
                                     >
                                         <ImageIcon className="inline-block w-4 h-4 mr-2" />
                                         Upload File
@@ -1006,11 +1270,10 @@ const SlashCommandEditor = ({ onChange }: SlashCommandEditorProps): JSX.Element 
                                             setImageInputMode("url");
                                             setImageUrlInput("");
                                         }}
-                                        className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
-                                            imageInputMode === "url"
-                                                ? "bg-primary text-primary-foreground"
-                                                : "bg-muted text-muted-foreground hover:bg-muted/80"
-                                        }`}
+                                        className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${imageInputMode === "url"
+                                            ? "bg-primary text-primary-foreground"
+                                            : "bg-muted text-muted-foreground hover:bg-muted/80"
+                                            }`}
                                     >
                                         <Link className="inline-block w-4 h-4 mr-2" />
                                         From URL
@@ -1381,6 +1644,87 @@ const SlashCommandEditor = ({ onChange }: SlashCommandEditorProps): JSX.Element 
                     </div>
                 </>
             )}
+
+            {/* Link URL Modal */}
+            {showLinkModal && (
+                <>
+                    {/* Backdrop */}
+                    <div
+                        className="fixed inset-0 bg-background/50 backdrop-blur-sm z-40"
+                        onClick={() => {
+                            setShowLinkModal(false);
+                            setLinkUrl("");
+                        }}
+                    />
+                    {/* Modal */}
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <div className="bg-card border border-border rounded-lg shadow-2xl w-full max-w-sm">
+                            {/* Header */}
+                            <div className="flex items-center justify-between p-6 border-b border-border">
+                                <h2 className="text-lg font-semibold">Add Link URL</h2>
+                                <button
+                                    onClick={() => {
+                                        setShowLinkModal(false);
+                                        setLinkUrl("");
+                                    }}
+                                    className="p-1 hover:bg-accent rounded-lg transition-colors"
+                                    title="Close"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            {/* Content */}
+                            <div className="p-6 space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-foreground mb-2">
+                                        URL
+                                    </label>
+                                    <input
+                                        ref={linkModalInputRef}
+                                        type="text"
+                                        value={linkUrl}
+                                        onChange={(e) => setLinkUrl(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter") {
+                                                e.preventDefault();
+                                                handleLinkSubmit();
+                                            } else if (e.key === "Escape") {
+                                                setShowLinkModal(false);
+                                                setLinkUrl("");
+                                            }
+                                        }}
+                                        placeholder="https://example.com"
+                                        className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all bg-background text-foreground placeholder:text-muted-foreground/50"
+                                        autoFocus
+                                    />
+                                    <p className="text-xs text-muted-foreground/70 mt-2">Enter a valid URL starting with http:// or https://</p>
+                                </div>
+                            </div>
+
+                            {/* Footer */}
+                            <div className="flex gap-3 p-6 border-t border-border">
+                                <button
+                                    onClick={() => {
+                                        setShowLinkModal(false);
+                                        setLinkUrl("");
+                                    }}
+                                    className="flex-1 py-2 px-4 border border-border rounded-lg hover:bg-accent transition-colors font-medium text-sm"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleLinkSubmit}
+                                    disabled={!linkUrl.trim()}
+                                    className="flex-1 py-2 px-4 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium text-sm"
+                                >
+                                    Add Link
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </>
+            )}
         </div>
     );
 }
@@ -1391,6 +1735,48 @@ export default function NewBlogPage() {
     const [content, setContent] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [savedStatus, setSavedStatus] = useState<"idle" | "saving" | "saved">("idle");
+    const [isDraft, setIsDraft] = useState(true);
+    const [lastSavedDraftId, setLastSavedDraftId] = useState<string | null>(null);
+    const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+    //get drafted blog from DB using query param and populate the fields
+    //if id then open existing blog
+    const [draftId, setDraftId] = useState<string | null>(null);
+    const [draftError, setdraftError] = useState<string | null>(null);
+    const [initialEditorContent, setInitialEditorContent] = useState<string>("");
+    const [isDraftLoading, setIsDraftLoading] = useState(false);
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const draftId = urlParams.get("id");
+        if (draftId) {
+            setDraftId(draftId);
+            setIsDraftLoading(true);
+        }
+        if (draftId) {
+            // Fetch draft data and populate fields
+            axios.get(`/api/blogs/draft?id=${draftId}`)
+                .then((response) => {
+                    const { data, isError } = response.data as { data: draftBlog; isError: boolean; error?: string };
+                    console.log(data, isError);
+                    if (!isError && data) {
+                        setTitle(data.title);
+                        setSubtitle(data.subTitle || "");
+                        setContent(data.contents);
+                        setInitialEditorContent(data.contents);
+                        setLastSavedDraftId(data.id);
+                    }
+                })
+                .catch((error) => {
+                    setdraftError("Failed to load draft. It may have been deleted or is inaccessible.");
+                })
+                .finally(() => {
+                    setIsDraftLoading(false);
+                });
+        }
+    }, []);
+
 
     // Extract first image URL from content
     const extractFirstImage = (content: string): string | null => {
@@ -1403,8 +1789,110 @@ export default function NewBlogPage() {
         return /!\[([^\]]*)\]\([^)]+\)/.test(content);
     };
 
+    // Auto-dismiss error after 8 seconds
+    useEffect(() => {
+        if (error) {
+            if (errorTimeoutRef.current) clearTimeout(errorTimeoutRef.current);
+            errorTimeoutRef.current = setTimeout(() => {
+                setError(null);
+            }, 8000);
+        }
+        return () => {
+            if (errorTimeoutRef.current) clearTimeout(errorTimeoutRef.current);
+        };
+    }, [error]);
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+                e.preventDefault();
+                saveDraft();
+            }
+        };
+
+        window.addEventListener("keydown", handleKeyDown as unknown as EventListener);
+        return () => window.removeEventListener("keydown", handleKeyDown as unknown as EventListener);
+    }, [title, subtitle, content, lastSavedDraftId]);
+
+    const saveDraft = async () => {
+        // Validation
+        if (!title.trim()) {
+            setError("Title is required to save draft");
+            setSavedStatus("idle");
+            return;
+        }
+
+        if (!subtitle.trim()) {
+            setError("Subtitle is required to save draft");
+            setSavedStatus("idle");
+            return;
+        }
+
+        if (!content.trim()) {
+            setError("Content is required to save draft");
+            setSavedStatus("idle");
+            return;
+        }
+
+        setSavedStatus("saving");
+        setError(null);
+
+        const bannerImage = extractFirstImage(content);
+
+        const blogData = {
+            title: title.trim(),
+            subTitle: subtitle.trim(),
+            contents: content,
+            is_premium: false,
+            banner_image: bannerImage,
+            is_draft: true,
+        };
+
+        try {
+            let response;
+            if (lastSavedDraftId) {
+                // Update existing draft
+                response = await axios.patch(
+                    `/api/blogs/draft?id=${lastSavedDraftId}`,
+                    blogData
+                ) as AxiosResponse<{ data: Blog; isError: boolean; error?: string }>;
+            } else {
+                // Create new draft
+                response = await axios.post(
+                    '/api/blogs/draft',
+                    blogData
+                ) as AxiosResponse<{ data: Blog; isError: boolean; error?: string }>;
+                setLastSavedDraftId(response.data.data.id);
+            }
+
+            setSavedStatus("saved");
+            setError(null);
+            // Reset saved status after 3 seconds
+            if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+            saveTimeoutRef.current = setTimeout(() => setSavedStatus("idle"), 3000);
+        } catch (error: any) {
+            console.error('Error saving draft:', error);
+            const errorMessage = error?.response?.data?.error || error?.message || "Failed to save draft. Please try again.";
+            setError(errorMessage);
+            setSavedStatus("idle");
+        }
+    };
+
     const handleSubmit = async () => {
-        if (!title || !content) return;
+        // Validation
+        if (!title.trim()) {
+            setError("Title is required to publish");
+            return;
+        }
+
+        if (!subtitle.trim()) {
+            setError("Subtitle is required to publish");
+            return;
+        }
+
+        if (!content.trim()) {
+            setError("Content is required to publish");
+            return;
+        }
 
         // Check for at least one image
         if (!hasImage(content)) {
@@ -1418,25 +1906,62 @@ export default function NewBlogPage() {
         const bannerImage = extractFirstImage(content);
 
         const blog = {
-            title,
-            subTitle: subtitle,
+            title: title.trim(),
+            subTitle: subtitle.trim(),
             contents: content,
             is_premium: false,
             banner_image: bannerImage,
+            is_draft: false,
         };
 
-        ///submit to API
         try {
-            const response = await axios.post('/api/blogs', blog) as AxiosResponse<{ data: Blog; isError: boolean; error?: string }>;
+            let response;
+            if (lastSavedDraftId && isDraft) {
+                // Update draft to published
+                response = await axios.patch(
+                    `/api/blogs/draft?id=${lastSavedDraftId}`,
+                    blog
+                ) as AxiosResponse<{ data: Blog; isError: boolean; error?: string }>;
+            } else {
+                // Create new published blog
+                response = await axios.post('/api/blogs', blog) as AxiosResponse<{ data: Blog; isError: boolean; error?: string }>;
+            }
+
+            setIsDraft(false);
             window.location.href = `/blogs/${response.data.data.id}`;
-        } catch (error) {
-            console.error('Error creating blog:', error);
-            setError("Failed to create blog. Please try again.");
+        } catch (error: any) {
+            console.error('Error publishing blog:', error);
+            const errorMessage = error?.response?.data?.error || error?.message || "Failed to publish blog. Please try again.";
+            setError(errorMessage);
         } finally {
             setIsSubmitting(false);
         }
     };
+
     const wordCount = content.trim().split(/\s+/).filter(Boolean).length;
+
+    if (draftId && draftError) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <div className="text-center">
+                    <p className="text-lg font-medium text-destructive">
+                        {draftError}
+                    </p>
+                </div>
+            </div>
+        )
+    }
+
+    if (isDraftLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-background">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                    <p className="text-muted-foreground">Loading draft...</p>
+                </div>
+            </div>
+        )
+    }
 
     return (
         <div className="min-h-screen bg-background py-0 px-4 sm:px-6">
@@ -1447,7 +1972,10 @@ export default function NewBlogPage() {
                         type="text"
                         placeholder="Title"
                         value={title}
-                        onChange={(e) => setTitle(e.target.value)}
+                        onChange={(e) => {
+                            setTitle(e.target.value);
+                            setSavedStatus("idle");
+                        }}
                         onKeyDown={(e) => e.key === "Enter" && e.preventDefault()}
                         className="w-full bg-transparent text-4xl sm:text-5xl font-bold placeholder:text-muted-foreground/40 focus:outline-none mb-4"
                     />
@@ -1457,29 +1985,77 @@ export default function NewBlogPage() {
                         type="text"
                         placeholder="Add a subtitle..."
                         value={subtitle}
-                        onChange={(e) => setSubtitle(e.target.value)}
+                        onChange={(e) => {
+                            setSubtitle(e.target.value);
+                            setSavedStatus("idle");
+                        }}
                         onKeyDown={(e) => e.key === "Enter" && e.preventDefault()}
                         className="w-full bg-transparent text-xl sm:text-2xl text-muted-foreground placeholder:text-muted-foreground/40 focus:outline-none mb-8"
                     />
                     {/* Text Area with Custom Testing */}
-                    <SlashCommandEditor onChange={setContent} />
+                    <SlashCommandEditor onChange={setContent} initialContent={initialEditorContent} />
 
-                    {/* Error Message */}
+                    {/* Error Alert - Bottom Left */}
                     {error && (
-                        <div className="mt-4 p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive text-sm">
-                            {error}
+                        <div className="fixed bottom-4 left-4 z-50 max-w-sm p-4 bg-destructive border border-destructive/30 rounded-lg text-destructive text-sm flex items-start gap-3 animate-in fade-in slide-in-from-left text-white">
+                            <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <div className="flex-1 min-w-0">
+                                <p className="font-medium">Error</p>
+                                <p className="mt-1 break-words">{error}</p>
+                            </div>
+                            <button
+                                onClick={() => setError(null)}
+                                className="text-destructive/60 hover:text-destructive flex-shrink-0"
+                                title="Dismiss"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="white" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
                         </div>
                     )}
 
                     {/* Bottom Bar */}
                     <div className="fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-sm py-4 px-4 sm:px-6 border-t border-border/50">
-                        <div className="max-w-3xl mx-auto flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                <span className="text-sm text-muted-foreground">
+                        <div className="max-w-3xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full sm:w-auto">
+                                <span className="text-sm text-muted-foreground whitespace-nowrap">
                                     {wordCount} {wordCount === 1 ? "word" : "words"}
                                 </span>
+
+                                {/* Draft Status */}
+                                <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/30">
+                                    <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+                                    <span className="text-xs font-medium text-primary">
+                                        {isDraft ? "Draft" : "Published"}
+                                    </span>
+                                </div>
+
+                                {/* Saved Status */}
+                                {savedStatus !== "idle" && (
+                                    <div className={`text-xs font-medium flex items-center gap-1 ${savedStatus === "saving" ? "text-amber-500" : "text-green-500"
+                                        }`}>
+                                        {savedStatus === "saving" && (
+                                            <>
+                                                <div className="w-3 h-3 border-2 border-amber-500/30 border-t-amber-500 rounded-full animate-spin" />
+                                                Saving...
+                                            </>
+                                        )}
+                                        {savedStatus === "saved" && (
+                                            <>
+                                                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                                </svg>
+                                                Saved to draft
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+
                                 {!hasImage(content) && content.length > 0 && (
-                                    <span className="text-xs text-amber-500 flex items-center gap-1">
+                                    <span className="text-xs text-amber-500 flex items-center gap-1 whitespace-nowrap">
                                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                                         </svg>
@@ -1487,24 +2063,27 @@ export default function NewBlogPage() {
                                     </span>
                                 )}
                             </div>
-                            <div className="flex items-center gap-3">
+
+                            <div className="flex items-center gap-2 w-full sm:w-auto">
                                 <Button
                                     type="button"
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => {
-                                        // TODO: Save as draft
-                                        console.log("Save as draft");
-                                    }}
+                                    title="Save draft (Ctrl+S)"
+                                    onClick={saveDraft}
+                                    disabled={!title.trim() || !content.trim() || savedStatus === "saving"}
+                                    className="text-xs"
+                                    suppressHydrationWarning
                                 >
-                                    Save draft
+                                    {savedStatus === "saving" ? "Saving..." : "Save draft"}
                                 </Button>
                                 <Button
                                     type="button"
                                     size="sm"
                                     disabled={isSubmitting || !title || !content || !hasImage(content)}
-                                    className="rounded-full px-6"
+                                    className="rounded-full px-6 whitespace-nowrap text-xs sm:text-sm"
                                     onClick={handleSubmit}
+                                    suppressHydrationWarning
                                 >
                                     {isSubmitting ? "Publishing..." : "Publish"}
                                 </Button>
