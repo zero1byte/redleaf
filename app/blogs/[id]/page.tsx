@@ -4,8 +4,6 @@ import Link from 'next/link';
 import { getBlogById } from '@/app/services/blogs/blogs';
 import { getBlogStats } from '@/app/services/blogs/stats';
 import { incrementBlogViews } from '@/app/services/blogs/views';
-import { BlogLikeButton } from '@/components/blogs/BlogLikeButton';
-import { BlogCommentSection } from '@/components/blogs/BlogCommentSection';
 import { getCurrentUser } from '@/lib/supabase/supabase';
 import { Blog } from '@/app/api/blogs/route';
 
