@@ -287,8 +287,49 @@ const BlogContent = ({ content }: { content: string }) => {
                 flushList();
                 elements.push(
                     <figure key={`img-${index}`} className="my-10">
-                        <div className="overflow-hidden rounded-2xl border border-border/40">
-                            <img src={imgMatch[2]} alt={imgMatch[1] || 'Blog image'} className="w-full object-cover" />
+                        <div className="relative">
+                            <input
+                                id={`image-preview-${index}`}
+                                type="checkbox"
+                                className="peer sr-only"
+                            />
+                            <div className="overflow-hidden border border-border/40">
+                                <img src={imgMatch[2]} alt={imgMatch[1] || 'Blog image'} className="w-full object-cover rounded-none" />
+                            </div>
+                            <div className="absolute top-3 right-3 flex gap-2">
+                                <label
+                                    htmlFor={`image-preview-${index}`}
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/40 bg-background/90 text-foreground shadow-lg backdrop-blur-sm hover:bg-background"
+                                    title="View full size"
+                                >
+                                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 3h6v6m0-6-7 7M9 21H3v-6m0 6 7-7" />
+                                    </svg>
+                                </label>
+                            </div>
+                            <div className="fixed inset-0 z-50 hidden peer-checked:flex items-center justify-center bg-black/85 p-4">
+                                <label
+                                    htmlFor={`image-preview-${index}`}
+                                    className="absolute inset-0 cursor-zoom-out"
+                                    aria-label="Close image preview"
+                                />
+                                <div className="relative z-10 flex max-h-[90vh] w-full max-w-6xl items-center justify-center">
+                                    <img
+                                        src={imgMatch[2]}
+                                        alt={imgMatch[1] || 'Blog image'}
+                                        className="max-h-[90vh] max-w-full rounded-none object-contain shadow-2xl"
+                                    />
+                                    <label
+                                        htmlFor={`image-preview-${index}`}
+                                        className="absolute top-4 right-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-black/70 text-white shadow-lg backdrop-blur-sm hover:bg-black/85"
+                                        title="Close"
+                                    >
+                                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18 18 6M6 6l12 12" />
+                                        </svg>
+                                    </label>
+                                </div>
+                            </div>
                         </div>
                         {imgMatch[1] && (
                             <figcaption className="mt-3 text-center text-sm text-muted-foreground italic">
