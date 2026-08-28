@@ -136,6 +136,36 @@ const renderInlineFormatting = (text: string): React.ReactNode => {
     return parts.length === 0 ? text : parts;
 };
 
+// ─── Table helpers (standard GFM-style markdown tables) ───────────────────────
+// A table block looks like:
+//   | Col A | Col B |
+//   | --- | :---: |
+//   | val | val   |
+const isTableSeparatorLine = (line: string): boolean =>
+    /^\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?$/.test(line.trim());
+
+const parseTableRow = (line: string): string[] => {
+    let row = line.trim();
+    if (row.startsWith('|')) row = row.slice(1);
+    if (row.endsWith('|')) row = row.slice(0, -1);
+    return row.split('|').map((cell) => cell.trim());
+};
+
+type TableAlign = 'left' | 'center' | 'right' | undefined;
+
+const parseTableAlignments = (separatorLine: string): TableAlign[] =>
+    parseTableRow(separatorLine).map((cell) => {
+        const left = cell.startsWith(':');
+        const right = cell.endsWith(':');
+        if (left && right) return 'center';
+        if (right) return 'right';
+        if (left) return 'left';
+        return undefined;
+    });
+
+const tableAlignClass = (align: TableAlign): string =>
+    align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : 'text-left';
+
 // ─── Blog Content Renderer ────────────────────────────────────────────────────
 const BlogContent = ({ content }: { content: string }) => {
     const renderContent = () => {
@@ -232,6 +262,54 @@ const BlogContent = ({ content }: { content: string }) => {
                             <span className="w-1 h-1 rounded-full bg-muted-foreground/40" />
                         </div>
                         <div className="flex-1 h-px bg-border/60" />
+                    </div>
+                );
+                return;
+            }
+
+            // Table (standard GFM-style markdown table: header row + separator row + body rows)
+            const tableLines = trimmed.split('\n').filter((l) => l.trim().length > 0);
+            if (
+                tableLines.length >= 2 &&
+                tableLines[0].includes('|') &&
+                isTableSeparatorLine(tableLines[1])
+            ) {
+                flushList();
+
+                const headerCells = parseTableRow(tableLines[0]);
+                const alignments = parseTableAlignments(tableLines[1]);
+                const bodyRows = tableLines.slice(2).map(parseTableRow);
+
+                elements.push(
+                    <div key={`table-${index}`} className="my-8 overflow-x-auto rounded-xl border border-border/60">
+                        <table className="w-full border-collapse text-sm">
+                            <thead>
+                                <tr className="bg-muted/60">
+                                    {headerCells.map((cell, ci) => (
+                                        <th
+                                            key={ci}
+                                            className={`px-4 py-2.5 font-semibold text-foreground border-b border-border/60 ${tableAlignClass(alignments[ci])}`}
+                                        >
+                                            {renderInlineFormatting(cell)}
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {bodyRows.map((row, ri) => (
+                                    <tr key={ri} className={ri % 2 === 1 ? 'bg-muted/20' : undefined}>
+                                        {row.map((cell, ci) => (
+                                            <td
+                                                key={ci}
+                                                className={`px-4 py-2.5 text-muted-foreground border-b border-border/40 last:border-b-0 ${tableAlignClass(alignments[ci])}`}
+                                            >
+                                                {renderInlineFormatting(cell)}
+                                            </td>
+                                        ))}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
                 );
                 return;
@@ -355,25 +433,41 @@ const BlogContent = ({ content }: { content: string }) => {
                 return;
             }
 
-            // Bullet list
-            if (trimmed.match(/^(\s*)- /)) {
-                const match = trimmed.match(/^(\s*)- (.+)$/);
-                if (match) {
-                    const indent = Math.floor(match[1].length / 2);
-                    if (listItems.length > 0 && listItems[0].type !== 'bullet') flushList();
-                    listItems.push({ type: 'bullet', content: match[2], indent });
-                }
+            // List blocks (bullet or numbered), standard markdown style.
+            // A whole block can contain multiple list items separated by single
+            // newlines (e.g. "- one\n- two\n- three"); each line is parsed on
+            // its own so multi-item lists render correctly instead of being
+            // silently dropped.
+            const bulletLineRe = /^(\s*)-\s+(.+)$/;
+            const numberedLineRe = /^(\s*)\d+\.\s+(.+)$/;
+            const blockLines = trimmed.split('\n');
+            const nonEmptyLines = blockLines.filter((l) => l.trim() !== '');
+            const isBulletBlock =
+                nonEmptyLines.length > 0 && nonEmptyLines.every((l) => bulletLineRe.test(l));
+            const isNumberedBlock =
+                nonEmptyLines.length > 0 && nonEmptyLines.every((l) => numberedLineRe.test(l));
+
+            if (isBulletBlock) {
+                nonEmptyLines.forEach((line) => {
+                    const m = line.match(bulletLineRe);
+                    if (m) {
+                        const indent = Math.floor(m[1].length / 2);
+                        if (listItems.length > 0 && listItems[0].type !== 'bullet') flushList();
+                        listItems.push({ type: 'bullet', content: m[2], indent });
+                    }
+                });
                 return;
             }
 
-            // Numbered list
-            if (trimmed.match(/^(\s*)\d+\. /)) {
-                const match = trimmed.match(/^(\s*)\d+\. (.+)$/);
-                if (match) {
-                    const indent = Math.floor(match[1].length / 2);
-                    if (listItems.length > 0 && listItems[0].type !== 'numbered') flushList();
-                    listItems.push({ type: 'numbered', content: match[2], indent });
-                }
+            if (isNumberedBlock) {
+                nonEmptyLines.forEach((line) => {
+                    const m = line.match(numberedLineRe);
+                    if (m) {
+                        const indent = Math.floor(m[1].length / 2);
+                        if (listItems.length > 0 && listItems[0].type !== 'numbered') flushList();
+                        listItems.push({ type: 'numbered', content: m[2], indent });
+                    }
+                });
                 return;
             }
 
